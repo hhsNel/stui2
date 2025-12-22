@@ -2,6 +2,7 @@
 #include <stddef.h>
 
 #include "dblbuf.h"
+#include "iobuffer.h"
 
 #define ANSI_ESC		"\033["
 #define ANSI_GOTO(X,Y)	ANSI_ESC Y ";" X "H" /* 1-indexed */
