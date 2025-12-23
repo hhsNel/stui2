@@ -15,6 +15,12 @@ enum input_modifier {
 	IM_META = 4,
 	IM_SUPER = 8
 };
+enum special_key {
+	SK_BACKSPACE,
+	SK_TAB,
+	SK_RETURN,
+	SK_ESCAPE,
+};
 struct input_evt {
 	enum input_type type;
 	union {
@@ -24,8 +30,8 @@ struct input_evt {
 			input_modifiers mods;
 		} key;
 		struct {
-			char raw[16];
-			int key;
+			char raw[8];
+			enum special_key parsed;
 			input_modifiers mods;
 		} special;
 	} data;

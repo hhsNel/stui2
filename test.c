@@ -1,7 +1,13 @@
+#include "inputtranslator.h"
 #include "iobuffer.h"
 #include "screen.h"
 #include "dblbuf.h"
 #include "inputctl.h"
+
+#include <stdio.h>
+#include <stdlib.h>
+
+#include <unistd.h>
 
 int main(int argc, char **argv) {
 	struct io_buffer buf;
@@ -10,6 +16,7 @@ int main(int argc, char **argv) {
 	struct dblbuf db;
 	struct input_ctl ic;
 	struct input_evt evt;
+	struct input_translator it;
 
 	init_io_buffer(&buf);
 	append_io_buffer(&buf, "Hello, World!\n");
@@ -45,6 +52,24 @@ int main(int argc, char **argv) {
 	add_input_ctl(&ic, evt);
 	evt = get_input_ctl(&ic);
 	evt = get_input_ctl(&ic);
+
+	init_input_translator(&it);
+	while(1) {
+		run_input_translator(&it, STDIN_FILENO);
+		while((evt = get_input_ctl(&it.ic)).type != IT_NONE) {
+			if(evt.type == IT_KEY) {
+				printf("Key %c recognized as %c with flags %d\n", evt.data.key.raw,
+						evt.data.key.parsed, (int)evt.data.key.mods);
+			} else {
+				printf("Key %s recognized as special %d with flags %d\n", evt.data.special.raw,
+						(int)evt.data.special.parsed, (int)evt.data.special.mods);
+			}
+			if(evt.data.key.parsed == 'q' && evt.data.key.mods == IM_SHIFT) {
+				exit(0);
+			}
+		}
+		sleep(1);
+	}
 
 	return 0;
 }
