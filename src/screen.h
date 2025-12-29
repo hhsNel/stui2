@@ -5,7 +5,7 @@
 
 #include <stdint.h>
 
-typedef uint16_t scrcoord;
+typedef int16_t scrcoord;
 enum color_type {
 	CLR_USR,
 	CLR_256,
