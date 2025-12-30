@@ -11,6 +11,13 @@
         const typeof( ((type *)0)->member ) *__mptr = (ptr);    \
         (type *)((char *)__mptr - offsetof(type,member));})
 
+#ifndef MIN
+#define MIN(A,B) (((A) > (B)) ? (B) : (A))
+#endif
+#ifndef MAX
+#define MAX(A,B) (((A) > (B)) ? (A) : (B))
+#endif
+
 typedef uint32_t data_len;
 
 #endif

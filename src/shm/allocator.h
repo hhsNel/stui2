@@ -7,6 +7,8 @@
 #include "shm/shm.h"
 
 #define SHMNULL 0
+#define fromshmptr(PTRTYPE, PDATA, PTR) ((PTRTYPE *)from_shmptr((PDATA).shm, PTR))
+#define toshmptr(PDATA, PTR) (to_shmptr(&((PDATA).shm), PTR))
 
 struct shm_allocator {
 	size_t mapped_size;

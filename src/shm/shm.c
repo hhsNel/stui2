@@ -50,7 +50,7 @@ init_shm_data(struct shm_data *data, void *addr, int is_parent)
 }
 
 int
-shm_map_memory(struct shm_data *data, size_t size)
+shm_map_memory(struct shm_data *data, size_t size, int resize)
 {
 	void *res;
 
@@ -58,8 +58,10 @@ shm_map_memory(struct shm_data *data, size_t size)
 		return STUI_ERR;
 	}
 
-	if(ftruncate(data->fd, data->size + size) == -1) {
-		return STUI_ERR;
+	if(resize) {
+		if(ftruncate(data->fd, data->size + size) == -1) {
+			return STUI_ERR;
+		}
 	}
 
 	if(data->addr == NULL) {
