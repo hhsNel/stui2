@@ -19,7 +19,7 @@ int main(int argc, char **argv) {
 	int i, j;
 	shmptr alloced;
 
-	is_parent = argc == 1;
+	is_parent = shm_is_parent();
 	init_shm_allocator(&pd, NULL, is_parent, sizeof(struct globals));
 	if(is_parent) {
 		scanf("%c", &c);
@@ -36,7 +36,7 @@ int main(int argc, char **argv) {
 			fromshmptr(char, pd, string)[i] = '\0';
 		}
 		if((child = fork()) == 0) {
-			execl(argv[0], argv[0], "second arg!", NULL);
+			execl(argv[0], argv[0], NULL);
 		}
 		waitpid(child, 0, 0);
 	} else {

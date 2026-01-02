@@ -102,3 +102,15 @@ to_shmptr(struct shm_data data, void *ptr)
 	return ptr - data.addr;
 }
 
+int
+shm_is_parent()
+{
+	return
+#ifdef _GNU_SOURCE
+			secure_getenv(SHM_ENV_NAME)
+#else
+			getenv(SHM_ENV_NAME)
+#endif
+			== NULL;
+}
+

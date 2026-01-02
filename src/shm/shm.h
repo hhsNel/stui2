@@ -20,6 +20,7 @@ int shm_map_memory(struct shm_data *data, size_t size, int resize);
 void shm_unmap_memory(struct shm_data data);
 void *from_shmptr(struct shm_data data, shmptr ptr);
 shmptr to_shmptr(struct shm_data data, void *ptr);
+int shm_is_parent();
 
 #endif
 
