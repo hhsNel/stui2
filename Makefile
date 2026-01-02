@@ -1,9 +1,11 @@
 SRCDIR = src
+MODULES = base layout shm
 BUILDDIR = build
 TESTDIR = tests
 #TARGET = test
 
-SRC = $(wildcard $(SRCDIR)/*.c)
+#SRC = $(wildcard $(SRCDIR)/*.c)
+SRC = $(foreach MODULE, $(MODULES), $(wildcard $(SRCDIR)/$(MODULE)/*.c))
 OBJ = $(SRC:$(SRCDIR)/%.c=$(BUILDDIR)/%.o)
 TESTSRC = $(wildcard $(TESTDIR)/*.c)
 TESTOBJ = $(TESTSRC:$(TESTDIR)/%.c=$(TESTDIR)/%.o)
@@ -16,7 +18,7 @@ LDFLAGS = -pie -g
 all: $(TESTS) #$(TARGET)
 
 $(BUILDDIR):
-	mkdir -p $(BUILDDIR)
+	mkdir -p $(foreach MODULE, $(MODULES), $(BUILDDIR)/$(MODULE))
 
 test-%: $(TESTDIR)/%.o $(OBJ)
 	$(CC) $(OBJ) $< $(LDFLAGS) -o $@

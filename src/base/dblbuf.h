@@ -1,8 +1,8 @@
 #ifndef DBLBUF_H
 #define DBLBUF_H
 
-#include "iobuffer.h"
-#include "screen.h"
+#include "base/iobuffer.h"
+#include "base/screen.h"
 
 struct dblbuf {
 	struct io_buffer outbuf;

@@ -1,5 +1,5 @@
-#include "inputtranslator.h"
-#include "inputctl.h"
+#include "base/inputtranslator.h"
+#include "base/inputctl.h"
 #include "util.h"
 
 #include <unistd.h>

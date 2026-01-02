@@ -1,5 +1,5 @@
-#include "drawing.h"
-#include "screen.h"
+#include "base/drawing.h"
+#include "base/screen.h"
 
 int
 draw_line_screen(struct char_cell **scr, scrcoord width, scrcoord height, scrcoord x0, scrcoord y0, scrcoord x1, scrcoord y1, struct char_cell fill)

@@ -1,8 +1,8 @@
 #ifndef DRAWING_H
 #define DRAWING_H
 
-#include "screen.h"
-#include "dblbuf.h"
+#include "base/screen.h"
+#include "base/dblbuf.h"
 
 int draw_line_screen(struct char_cell **scr, scrcoord width, scrcoord height, scrcoord x0, scrcoord y0, scrcoord x1, scrcoord y1, struct char_cell fill);
 int draw_line_dblbuf(struct dblbuf *db,                                       scrcoord x0, scrcoord y0, scrcoord x1, scrcoord y1, struct char_cell fill);

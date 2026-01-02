@@ -1,8 +1,8 @@
-#include "inputtranslator.h"
-#include "iobuffer.h"
-#include "screen.h"
-#include "dblbuf.h"
-#include "inputctl.h"
+#include "base/inputtranslator.h"
+#include "base/iobuffer.h"
+#include "base/screen.h"
+#include "base/dblbuf.h"
+#include "base/inputctl.h"
 
 #include <stdio.h>
 #include <stdlib.h>

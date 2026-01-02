@@ -1,8 +1,8 @@
 #include <inttypes.h>
 #include <stddef.h>
 
-#include "dblbuf.h"
-#include "iobuffer.h"
+#include "base/dblbuf.h"
+#include "base/iobuffer.h"
 
 #define ANSI_ESC		"\033["
 #define ANSI_GOTO(X,Y)	ANSI_ESC Y ";" X "H" /* 1-indexed */

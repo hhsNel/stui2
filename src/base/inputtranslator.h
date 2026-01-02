@@ -1,7 +1,7 @@
 #ifndef INPUTTRANSLATOR_H
 #define INPUTTRANSLATOR_H
 
-#include "inputctl.h"
+#include "base/inputctl.h"
 
 enum input_translator_state {
 	ITS_NORMAL,

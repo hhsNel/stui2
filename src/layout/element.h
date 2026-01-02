@@ -1,7 +1,7 @@
 #ifndef ELEMENTS_H
 #define ELEMENTS_H
 
-#include "screen.h"
+#include "base/screen.h"
 
 #define RESIZABLE_COORD_BASE 16
 struct coord {

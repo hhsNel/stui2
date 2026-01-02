@@ -1,4 +1,4 @@
-#include "inputctl.h"
+#include "base/inputctl.h"
 #include "util.h"
 
 #include <stdlib.h>
