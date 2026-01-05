@@ -224,10 +224,11 @@ static void
 z_index_rotate_r (struct shm_allocator_pdata *pd, shmptr_of(struct z_index_node) *node)
 {
 	struct z_index_node *pnode, *pleft, *pright, *pleftright, *pleftleft;
-	shmptr_of(struct z_index_node) leftright, leftleft;
+	shmptr_of(struct z_index_node) left, leftright, leftleft;
 
 	pnode = fromshmptr(struct z_index_node, *pd, *node);
-	pleft = fromshmptr(struct z_index_node, *pd, pnode->left);
+	left = pnode->left;
+	pleft = fromshmptr(struct z_index_node, *pd, left);
 	pright = fromshmptr(struct z_index_node, *pd, pnode->right);
 	leftright = pleft->right;
 	leftleft = pleft->left;
@@ -240,18 +241,19 @@ z_index_rotate_r (struct shm_allocator_pdata *pd, shmptr_of(struct z_index_node)
 	pnode->height = 1 + MAX(z_index_height(pleftright), z_index_height(pright));
 	pleft->height = 1 + MAX(z_index_height(pleftleft), z_index_height(pnode));
 
-	*node = pnode->left;
+	*node = left;
 }
 
 static void
 z_index_rotate_l (struct shm_allocator_pdata *pd, shmptr_of(struct z_index_node) *node)
 {
 	struct z_index_node *pnode, *pleft, *pright, *prightleft, *prightright;
-	shmptr_of(struct z_index_node) rightright, rightleft;
+	shmptr_of(struct z_index_node) right, rightright, rightleft;
 
 	pnode = fromshmptr(struct z_index_node, *pd, *node);
+	right = pnode->right;
 	pleft = fromshmptr(struct z_index_node, *pd, pnode->left);
-	pright = fromshmptr(struct z_index_node, *pd, pnode->right);
+	pright = fromshmptr(struct z_index_node, *pd, right);
 	rightright = pright->right;
 	rightleft = pright->left;
 	prightright = fromshmptr(struct z_index_node, *pd, rightright);
@@ -263,6 +265,6 @@ z_index_rotate_l (struct shm_allocator_pdata *pd, shmptr_of(struct z_index_node)
 	pnode->height = 1 + MAX(z_index_height(pleft), z_index_height(prightleft));
 	pright->height = 1 + MAX(z_index_height(pnode), z_index_height(prightright));
 
-	*node = pnode->right;
+	*node = right;
 }
 
