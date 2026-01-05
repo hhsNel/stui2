@@ -6,9 +6,12 @@
 
 #include "shm/shm.h"
 
-#define SHMNULL 0
+#define shmptr_of(TYPE) shmptr
 #define fromshmptr(PTRTYPE, PDATA, PTR) ((PTRTYPE *)from_shmptr((PDATA).shm, PTR))
-#define toshmptr(PDATA, PTR) (to_shmptr(&((PDATA).shm), PTR))
+#define toshmptr(PDATA, PTR) (to_shmptr(((PDATA).shm), PTR))
+#define shmcontainer_of(shmptr, type, member) ({                      \
+        const shmptr_of(typeof( ((type *)0)->member )) __mshmptr = (shmptr);    \
+        (shmptr_of(type))((shmptr_of(char))__mshmptr - offsetof(type,member));})
 
 struct shm_allocator {
 	size_t mapped_size;
@@ -21,10 +24,11 @@ struct shm_chunk {
 
 struct shm_allocator_pdata {
 	struct shm_data shm;
-	int accessing;
+	unsigned int accessing;
 };
 
 int init_shm_allocator(struct shm_allocator_pdata *pdata, void *addr, int is_parent, data_len first_chunk_size);
+int free_shm_allocator(struct shm_allocator_pdata *pdata, int is_parent);
 shmptr shm_first_used(struct shm_allocator_pdata *pdata);
 void shm_access(struct shm_allocator_pdata *pdata);
 void shm_leave(struct shm_allocator_pdata *pdata);

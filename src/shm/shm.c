@@ -1,6 +1,7 @@
 #include "shm/shm.h"
 
 #include <unistd.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
@@ -9,12 +10,14 @@
 #include <fcntl.h>
 
 #define SHM_ENV_NAME "STUI_SHM"
+#define SHM_ENV_PREFIX "/stui-"
 
 int
 init_shm_data(struct shm_data *data, void *addr, int is_parent)
 {
 	char *env;
 	unsigned int i;
+	char full_name[sizeof(SHM_ENV_PREFIX) + SHM_ENV_LENGTH];
 
 	data->addr = addr;
 	data->size = 0;
@@ -40,10 +43,24 @@ init_shm_data(struct shm_data *data, void *addr, int is_parent)
 		data->shm_name[SHM_ENV_LENGTH] = '\0';
 	}
 
-	data->fd = shm_open(data->shm_name, O_RDWR | O_CREAT,
+	sprintf(full_name, "%s%s", SHM_ENV_PREFIX, data->shm_name);
+	data->fd = shm_open(full_name, O_RDWR | O_CREAT,
 	                    S_IRUSR|S_IWUSR | S_IRGRP|S_IWGRP | S_IROTH|S_IWOTH);
 	if(data->fd < 0) {
 		return STUI_ERR;
+	}
+
+	return STUI_OK;
+}
+
+int
+free_shm_data(struct shm_data *data, int is_parent)
+{
+	char full_name[sizeof(SHM_ENV_PREFIX) + SHM_ENV_LENGTH];
+
+	if(is_parent) {
+		sprintf(full_name, "%s%s", SHM_ENV_PREFIX, data->shm_name);
+		if(shm_unlink(full_name) == -1) return STUI_ERR;
 	}
 
 	return STUI_OK;
@@ -93,6 +110,10 @@ shm_unmap_memory(struct shm_data data)
 void *
 from_shmptr(struct shm_data data, shmptr ptr)
 {
+	if(ptr == SHMNULL) {
+		return NULL;
+	}
+
 	return data.addr + ptr;
 }
 

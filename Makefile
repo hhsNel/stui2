@@ -33,8 +33,8 @@ $(BUILDDIR)/%.o: $(SRCDIR)/%.c | $(BUILDDIR)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 clean:
-	rm -rf $(BUILDDIR) $(TARGET) $(TESTS)
-	rm -f $(TESTDIR)/*.o
+	rm -rf $(BUILDDIR)
+	rm -f $(TARGET) $(TESTS) $(TESTOBJ)
 
 .PHONY: all clean
 

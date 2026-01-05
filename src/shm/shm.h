@@ -6,6 +6,8 @@
 
 #include "util.h"
 
+#define SHMNULL 0
+
 typedef data_len shmptr;
 struct shm_data {
 	char shm_name[SHM_ENV_LENGTH+1];
@@ -16,6 +18,7 @@ struct shm_data {
 };
 
 int init_shm_data(struct shm_data *data, void *addr, int is_parent);
+int free_shm_data(struct shm_data *data, int is_parent);
 int shm_map_memory(struct shm_data *data, size_t size, int resize);
 void shm_unmap_memory(struct shm_data data);
 void *from_shmptr(struct shm_data data, shmptr ptr);

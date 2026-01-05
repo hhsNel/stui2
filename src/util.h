@@ -2,6 +2,7 @@
 #define UTIL_H
 
 #include <stdint.h>
+#include <stddef.h>
 
 #define STUI_OK  0
 #define STUI_ERR 1

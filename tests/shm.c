@@ -6,7 +6,8 @@
 
 struct globals {
 	int max_length;
-	shmptr array;
+	shmptr_of(shmptr *) array;
+	shmptr_of(char *) realloc_test;
 };
 #define GPTR (fromshmptr(struct globals, pd, shm_first_used(&pd)))
 
@@ -15,9 +16,9 @@ int main(int argc, char **argv) {
 	struct shm_allocator_pdata pd;
 	char c;
 	pid_t child;
-	shmptr string;
+	shmptr_of(char *) string;
 	int i, j;
-	shmptr alloced;
+	shmptr_of(shmptr *) alloced;
 
 	is_parent = shm_is_parent();
 	init_shm_allocator(&pd, NULL, is_parent, sizeof(struct globals));
@@ -39,11 +40,27 @@ int main(int argc, char **argv) {
 			execl(argv[0], argv[0], NULL);
 		}
 		waitpid(child, 0, 0);
+
+		for(i = 0; i < GPTR->max_length; ++i) {
+			string = fromshmptr(shmptr, pd, GPTR->array)[i];
+			shm_free(&pd, string);
+		}
+		shm_free(&pd, GPTR->array);
+
+		GPTR->realloc_test = SHMNULL;
+		string = shm_realloc(&pd, GPTR->realloc_test, 48);
+		GPTR->realloc_test = string;
+		string = shm_realloc(&pd, GPTR->realloc_test, 96);
+		GPTR->realloc_test = string;
+		string = shm_realloc(&pd, GPTR->realloc_test, 16);
+		GPTR->realloc_test = string;
 	} else {
 		for(i = 0; i < GPTR->max_length; ++i) {
 			string = fromshmptr(shmptr, pd, GPTR->array)[i];
 			printf("%s\n", fromshmptr(char, pd, string));
 		}
 	}
+
+	free_shm_allocator(&pd, is_parent);
 }
 

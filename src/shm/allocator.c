@@ -42,6 +42,12 @@ init_shm_allocator(struct shm_allocator_pdata *pdata, void *addr, int is_parent,
 	return STUI_OK;
 }
 
+int
+free_shm_allocator(struct shm_allocator_pdata *pdata, int is_parent)
+{
+	return free_shm_data(&pdata->shm, is_parent);
+}
+
 shmptr
 shm_first_used(struct shm_allocator_pdata *pdata)
 {
@@ -54,18 +60,16 @@ void
 shm_access(struct shm_allocator_pdata *pdata)
 {
 	if(check_resizes(pdata) != STUI_OK) return;
-	if(pdata->accessing) return;
+	if(pdata->accessing ++) return;
 	sem_wait(&SHMA(*pdata)->sem);
-	pdata->accessing = 1;
 }
 
 void
 shm_leave(struct shm_allocator_pdata *pdata)
 {
 	if(check_resizes(pdata) != STUI_OK) return;
-	if(!pdata->accessing) return;
+	if(--pdata->accessing != 0) return;
 	sem_post(&SHMA(*pdata)->sem);
-	pdata->accessing = 0;
 }
 
 shmptr
@@ -130,8 +134,31 @@ shm_free(struct shm_allocator_pdata *pdata, shmptr ptr)
 shmptr
 shm_realloc(struct shm_allocator_pdata *pdata, shmptr ptr, data_len size)
 {
+	struct shm_chunk *container;
+	shmptr new_ptr;
+
+	if(ptr == SHMNULL) {
+		return shm_alloc(pdata, size);
+	}
+
+	if(size <= 0) {
+		return SHMNULL;
+	}
 	if(check_resizes(pdata) != STUI_OK) return SHMNULL;
-	return SHMNULL; /* todo */
+
+	container = pdata->shm.addr + ptr - sizeof(struct shm_chunk);
+	if(container->used + container->free >= size) {
+		container->free += container->used - size;
+		container->used = size;
+		return ptr;
+	}
+
+	new_ptr = shm_alloc(pdata, size);
+	if(new_ptr == SHMNULL) {
+		return SHMNULL;
+	}
+	shm_free(pdata, ptr);
+	return new_ptr;
 }
 
 static void
