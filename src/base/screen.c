@@ -11,8 +11,12 @@ init_screen(struct shm_allocator_pdata *pd, struct screen *scr, scrcoord width, 
 
 	shm_access(pd);
 
+	scr->width = width;
+	scr->height = height;
+
 	scr->ccs = shm_alloc(pd, width * height * sizeof(struct char_cell));
 	if(scr->ccs == SHMNULL) {
+		shm_leave(pd);
 		return STUI_ERR;
 	}
 	pccs = fromshmptr(struct char_cell, *pd, scr->ccs);

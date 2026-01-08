@@ -23,8 +23,8 @@ int main(int argc, char **argv) {
 	init_shm_allocator(&pd, NULL, 1, 0);
  
  	init_io_buffer(&buf);
- 	append_io_buffer(&buf, "Hello, World!\n");
- 	dump_io_buffer(&buf, STDOUT_FILENO);
+ 	append_io_buffer(&pd, &buf, "Hello, World!\n");
+ 	dump_io_buffer(pd, &buf, STDOUT_FILENO);
  
  	init_screen(&pd, &scr, 16, 16);
  	cc.c = 'H';
