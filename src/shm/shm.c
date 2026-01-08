@@ -54,12 +54,12 @@ init_shm_data(struct shm_data *data, void *addr, int is_parent)
 }
 
 int
-free_shm_data(struct shm_data *data, int is_parent)
+free_shm_data(struct shm_data data, int is_parent)
 {
 	char full_name[sizeof(SHM_ENV_PREFIX) + SHM_ENV_LENGTH];
 
 	if(is_parent) {
-		sprintf(full_name, "%s%s", SHM_ENV_PREFIX, data->shm_name);
+		sprintf(full_name, "%s%s", SHM_ENV_PREFIX, data.shm_name);
 		if(shm_unlink(full_name) == -1) return STUI_ERR;
 	}
 

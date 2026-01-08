@@ -27,14 +27,14 @@ struct shm_allocator_pdata {
 	unsigned int accessing;
 };
 
-int init_shm_allocator(struct shm_allocator_pdata *pdata, void *addr, int is_parent, data_len first_chunk_size);
-int free_shm_allocator(struct shm_allocator_pdata *pdata, int is_parent);
-shmptr shm_first_used(struct shm_allocator_pdata *pdata);
-void shm_access(struct shm_allocator_pdata *pdata);
-void shm_leave(struct shm_allocator_pdata *pdata);
-shmptr shm_alloc(struct shm_allocator_pdata *pdata, data_len size);
-void shm_free(struct shm_allocator_pdata *pdata, shmptr ptr);
-shmptr shm_realloc(struct shm_allocator_pdata *pdata, shmptr ptr, data_len size);
+int    init_shm_allocator(struct shm_allocator_pdata *pdata, void *addr, int is_parent, data_len first_chunk_size);
+int    free_shm_allocator(struct shm_allocator_pdata  pdata, int is_parent);
+shmptr shm_first_used    (struct shm_allocator_pdata *pdata);
+void   shm_access        (struct shm_allocator_pdata *pdata);
+void   shm_leave         (struct shm_allocator_pdata *pdata);
+shmptr shm_alloc         (struct shm_allocator_pdata *pdata, data_len size);
+void   shm_free          (struct shm_allocator_pdata *pdata, shmptr ptr);
+shmptr shm_realloc       (struct shm_allocator_pdata *pdata, shmptr ptr, data_len size);
 
 #endif
 

@@ -61,6 +61,6 @@ int main(int argc, char **argv) {
 		}
 	}
 
-	free_shm_allocator(&pd, is_parent);
+	free_shm_allocator(pd, is_parent);
 }
 

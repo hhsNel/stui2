@@ -12,7 +12,7 @@ TESTOBJ = $(TESTSRC:$(TESTDIR)/%.c=$(TESTDIR)/%.o)
 TESTS = $(TESTSRC:$(TESTDIR)/%.c=test-%)
 
 CC = gcc
-CFLAGS = -Wall -Wextra -Werror -Wshadow -Wno-missing-field-initializers -Wno-unused-parameter -fstack-protector-strong -fPIE -g -I$(SRCDIR) -D_GNU_SOURCE
+CFLAGS = -std=c99 -Wall -Wextra -Werror -Wshadow -Wno-missing-field-initializers -Wno-unused-parameter -fstack-protector-strong -fPIE -g -I$(SRCDIR) -D_GNU_SOURCE
 LDFLAGS = -pie -g
 
 all: $(TESTS) #$(TARGET)

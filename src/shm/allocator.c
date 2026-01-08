@@ -43,9 +43,9 @@ init_shm_allocator(struct shm_allocator_pdata *pdata, void *addr, int is_parent,
 }
 
 int
-free_shm_allocator(struct shm_allocator_pdata *pdata, int is_parent)
+free_shm_allocator(struct shm_allocator_pdata pdata, int is_parent)
 {
-	return free_shm_data(&pdata->shm, is_parent);
+	return free_shm_data(pdata.shm, is_parent);
 }
 
 shmptr

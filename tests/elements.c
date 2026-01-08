@@ -46,8 +46,17 @@ int main(int argc, char **argv) {
 
 	proot = fromshmptr(struct z_index_node, pd, root);
 	print_tree(pd, proot);
+	printf("---\n");
 
-	free_shm_allocator(&pd, 1);
+	z_index_remove(&pd, &root, el0);
+	z_index_remove(&pd, &root, el1);
+	z_index_remove(&pd, &root, el2);
+	z_index_remove(&pd, &root, el3);
+
+	proot = fromshmptr(struct z_index_node, pd, root);
+	print_tree(pd, proot);
+
+	free_shm_allocator(pd, 1);
 }
 
 void

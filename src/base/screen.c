@@ -4,98 +4,92 @@
 #include <string.h>
 
 int
-color_eq (struct color a, struct color b)
-{
-	if(a.type != b.type) {
-		return 0;
-	}
-	switch(a.type) {
-	case CLR_USR:
-		return a.data.usr == b.data.usr;
-	case CLR_256:
-		return a.data.c256 == b.data.c256;
-	case CLR_RGB:
-		return a.data.rgb.r == b.data.rgb.r &&
-		       a.data.rgb.g == b.data.rgb.g &&
-		       a.data.rgb.b == b.data.rgb.b;
-	default:
-		return 1;
-	}
-}
-
-int
-init_screen(struct char_cell ***scr, scrcoord width, scrcoord height)
+init_screen(struct shm_allocator_pdata *pd, struct screen *scr, scrcoord width, scrcoord height)
 {
 	scrcoord i, j;
+	struct char_cell *pccs;
 
-	*scr = malloc(width * sizeof(**scr));
-	if(!*scr) {
+	shm_access(pd);
+
+	scr->ccs = shm_alloc(pd, width * height * sizeof(struct char_cell));
+	if(scr->ccs == SHMNULL) {
 		return STUI_ERR;
 	}
-	memset(*scr, 0, width * sizeof(**scr));
+	pccs = fromshmptr(struct char_cell, *pd, scr->ccs);
+	memset(pccs, 0, width * height * sizeof(struct char_cell));
 
 	for(i = 0; i < width; ++i) {
-		(*scr)[i] = malloc(height * sizeof(***scr));
-		if(! (*scr)[i]) {
-			return STUI_ERR;
-		}
-
 		for(j = 0; j < height; ++j) {
-			(*scr)[i][j].fg = (*scr)[i][j].bg = (struct color){.type=CLR_DEFAULT};
+			set_cell_screen(*pd, *scr, (struct char_cell){.fg={.type=CLR_DEFAULT},.bg={.type=CLR_DEFAULT}}, i, j);
 		}
 	}
 
+	shm_leave(pd);
 	return STUI_OK;
 }
 
 void
-free_screen(struct char_cell **scr, scrcoord width, scrcoord height)
+free_screen(struct shm_allocator_pdata *pd, struct screen scr)
 {
-	scrcoord i;
-
-	for(i = 0; i < width; ++i) {
-		if(scr[i]) {
-			free(scr[i]);
-			scr[i] = NULL;
-		}
-	}
-
-	free(scr);
+	if(scr.ccs != SHMNULL) shm_free(pd, scr.ccs);
 }
 
 int
-resize_screen(struct char_cell ***scr, scrcoord width, scrcoord height, scrcoord new_width, scrcoord new_height)
+resize_screen(struct shm_allocator_pdata *pd, struct screen *scr, scrcoord new_width, scrcoord new_height)
 {
-	free_screen(*scr, width, height);
-	return init_screen(scr, new_width, new_height);
+	free_screen(pd, *scr);
+	return init_screen(pd, scr, new_width, new_height);
 }
 
 int
-set_cell_screen(struct char_cell  **scr, scrcoord width, scrcoord height, struct char_cell cc, scrcoord x, scrcoord y)
+set_cell_screen(struct shm_allocator_pdata pd, struct screen scr, struct char_cell cc, scrcoord x, scrcoord y)
 {
-	if(x >= width || y >= height) {
+	struct char_cell *pccs;
+
+	if(x >= scr.width || y >= scr.height || x < 0 || y < 0) {
 		return STUI_ERR;
 	}
 
-	scr[x][y] = cc;
+	pccs = fromshmptr(struct char_cell, pd, scr.ccs);
+	pccs[x + scr.width*y] = cc;
 	return STUI_OK;
 }
 
-int
-copy_screen(struct char_cell ***scr, struct char_cell **src, scrcoord prev_width, scrcoord new_width, scrcoord prev_height, scrcoord new_height)
+shmptr_of(struct char_cell)
+cell_at_screen(struct shm_allocator_pdata pd, struct screen scr, scrcoord x, scrcoord y)
 {
-	scrcoord i, j;
+	struct char_cell *pccs;
+	struct char_cell *pcell;
 
-	if(resize_screen(scr, prev_width, prev_height, new_width, new_height) != STUI_OK) {
+	if(x < 0 || y < 0 || x >= scr.width || y >= scr.height) {
+		return SHMNULL;
+	}
+
+	pccs = fromshmptr(struct char_cell, pd, scr.ccs);
+	pcell = pccs + y*scr.width + x;
+	return toshmptr(pd, pcell);
+}
+
+int
+copy_screen(struct shm_allocator_pdata *pd, struct screen *scr, struct screen src)
+{
+	struct char_cell *pccs_scr;
+	struct char_cell *pccs_src;
+	scrcoord i;
+
+	shm_access(pd);
+
+	if(resize_screen(pd, scr, src.width, src.height) != STUI_OK) {
 		return STUI_ERR;
 	}
 
-	for(i = 0; i < new_width; ++i) {
-		for(j = 0; j < new_height; ++j) {
-			(*scr)[i][j] = src[i][j];
-		}
+	pccs_scr = fromshmptr(struct char_cell, *pd, scr->ccs);
+	pccs_src = fromshmptr(struct char_cell, *pd, src.ccs);
+	for(i = 0; i < src.width * src.height; ++i) {
+		pccs_scr[i] = pccs_src[i];
 	}
 
+	shm_leave(pd);
 	return STUI_OK;
 }
 

@@ -6,6 +6,7 @@
 
 #define ANSI_ESC		"\033["
 #define ANSI_GOTO(X,Y)	ANSI_ESC Y ";" X "H" /* 1-indexed */
+#define GET_CC(PD,SCR,X,Y) (fromshmptr(struct char_cell,PD,cell_at_screen(PD,SCR,X,Y)))
 
 static int  begin_color_escape(struct dblbuf *db);
 static int  end_color_escape(struct dblbuf *db);
@@ -14,63 +15,60 @@ static int  output_char(struct io_buffer *buf, struct char_cell cc);
 static int  output_fg(struct dblbuf *db, struct char_cell cc);
 static int  output_bg(struct dblbuf *db, struct char_cell cc);
 static int  output_cc(struct dblbuf *db, struct char_cell cc);
-static int  is_different(struct dblbuf *db, scrcoord x, scrcoord y);
-static scrcoord difference_idx(struct dblbuf *db, scrcoord line);
-static int  redraw_cc(struct dblbuf *db, scrcoord x, scrcoord y);
-static int  redraw_line(struct dblbuf *db, scrcoord line);
-static int  redraw_dblbuf(struct dblbuf *db);
+static int  is_different(struct shm_allocator_pdata pd, struct dblbuf *db, scrcoord x, scrcoord y);
+static scrcoord difference_idx(struct shm_allocator_pdata pd, struct dblbuf *db, scrcoord line);
+static int  redraw_cc(struct shm_allocator_pdata pd, struct dblbuf *db, scrcoord x, scrcoord y);
+static int  redraw_line(struct shm_allocator_pdata pd, struct dblbuf *db, scrcoord line);
+static int  redraw_dblbuf(struct shm_allocator_pdata pd, struct dblbuf *db);
 
 int
-init_dblbuf(struct dblbuf *db, scrcoord w, scrcoord h)
+init_dblbuf(struct shm_allocator_pdata *pd, struct dblbuf *db, scrcoord w, scrcoord h)
 {
-	db->width = w;
-	db->height = h;
-	db->internal.is_in_color_escape = 0;
-	db->internal.last_diff_line = db->internal.last_diff_idx = -1;
-	db->internal.is_redrawing = 0;
-	init_io_buffer(& db->outbuf);
-	db->cur_scr = db->prev_scr = NULL;
-	if(init_screen(& db->cur_scr, w, h) != STUI_OK) return STUI_ERR;
-	if(init_screen(& db->prev_scr, w, h) != STUI_OK) return STUI_ERR;
+	db->is_in_color_escape = 0;
+	db->last_diff_line = db->last_diff_idx = -1;
+	db->is_redrawing = 0;
+	init_io_buffer(&db->outbuf);
+	if(init_screen(pd, &db->cur_scr, w, h) != STUI_OK) return STUI_ERR;
+	if(init_screen(pd, &db->prev_scr, w, h) != STUI_OK) return STUI_ERR;
 
 	return STUI_OK;
 }
 
 void
-free_dblbuf(struct dblbuf *db)
+free_dblbuf(struct shm_allocator_pdata *pd, struct dblbuf *db)
 {
-	free_io_buffer(& db->outbuf);
+	free_io_buffer(&db->outbuf);
 
-	if(db->cur_scr) free_screen(db->cur_scr, db->width, db->height);
-	if(db->prev_scr) free_screen(db->prev_scr, db->width, db->height);
+	free_screen(pd, db->cur_scr);
+	free_screen(pd, db->prev_scr);
 }
 
 int
-resize_dblbuf(struct dblbuf *db, scrcoord new_width, scrcoord new_height)
+resize_dblbuf(struct shm_allocator_pdata *pd, struct dblbuf *db, scrcoord new_width, scrcoord new_height)
 {
-	free_dblbuf(db);
-	return init_dblbuf(db, new_width, new_height);
+	free_dblbuf(pd, db);
+	return init_dblbuf(pd, db, new_width, new_height);
 }
 
 int
-set_cell(struct dblbuf *db, struct char_cell cc, scrcoord x, scrcoord y)
+set_cell(struct shm_allocator_pdata pd, struct dblbuf *db, struct char_cell cc, scrcoord x, scrcoord y)
 {
-	return set_cell_screen(db->cur_scr, db->width, db->height, cc, x, y);
+	return set_cell_screen(pd, db->cur_scr, cc, x, y);
 }
 
 int
-dump_dblbuf(struct dblbuf *db, int fd)
+dump_dblbuf(struct shm_allocator_pdata *pd, struct dblbuf *db, int fd)
 {
-	if(redraw_dblbuf(db) != STUI_OK) return STUI_ERR;
-	if(copy_screen(&db->prev_scr, db->cur_scr, db->width, db->height, db->width, db->height) != STUI_OK) return STUI_ERR;
+	if(redraw_dblbuf(*pd, db) != STUI_OK) return STUI_ERR;
+	if(copy_screen(pd, &db->prev_scr, db->cur_scr) != STUI_OK) return STUI_ERR;
 	return dump_io_buffer(&db->outbuf, fd);
 }
 
 static int
 begin_color_escape(struct dblbuf *db)
 {
-	if(! db->internal.is_in_color_escape) {
-		db->internal.is_in_color_escape = 1;
+	if(! db->is_in_color_escape) {
+		db->is_in_color_escape = 1;
 		return append_io_buffer(&db->outbuf, ANSI_ESC);
 	} else {
 		return append_io_buffer(&db->outbuf, ";");
@@ -80,8 +78,8 @@ begin_color_escape(struct dblbuf *db)
 static int
 end_color_escape(struct dblbuf *db)
 {
-	if(db->internal.is_in_color_escape) {
-		db->internal.is_in_color_escape = 0;
+	if(db->is_in_color_escape) {
+		db->is_in_color_escape = 0;
 		return append_io_buffer(&db->outbuf, "m");
 	}
 
@@ -169,28 +167,28 @@ output_cc(struct dblbuf *db, struct char_cell cc)
 }
 
 static int
-is_different(struct dblbuf *db, scrcoord x, scrcoord y)
+is_different(struct shm_allocator_pdata pd, struct dblbuf *db, scrcoord x, scrcoord y)
 {
-	return !color_eq(db->cur_scr[x][y].fg, db->prev_scr[x][y].fg) ||
-	       !color_eq(db->cur_scr[x][y].bg, db->prev_scr[x][y].bg) || 
-	       db->cur_scr[x][y].c != db->prev_scr[x][y].c;
+	return !color_eq(GET_CC(pd,db->cur_scr,x,y)->fg, GET_CC(pd,db->prev_scr,x,y)->fg) ||
+	       !color_eq(GET_CC(pd,db->cur_scr,x,y)->bg, GET_CC(pd,db->prev_scr,x,y)->bg) || 
+	       GET_CC(pd,db->cur_scr,x,y)->c != GET_CC(pd,db->prev_scr,x,y)->c;
 }
 
 static scrcoord
-difference_idx(struct dblbuf *db, scrcoord line)
+difference_idx(struct shm_allocator_pdata pd, struct dblbuf *db, scrcoord line)
 {
 	scrcoord i;
 
-	if(db->internal.last_diff_line == line) {
-		i = db->internal.last_diff_idx + 1;
+	if(db->last_diff_line == line) {
+		i = db->last_diff_idx + 1;
 	} else {
 		i = 0;
 	}
 
-	for(; i < db->width; ++i) {
-		if(is_different(db, i, line)) {
-			db->internal.last_diff_idx = i;
-			db->internal.last_diff_line = line;
+	for(; i < db->cur_scr.width; ++i) {
+		if(is_different(pd, db, i, line)) {
+			db->last_diff_idx = i;
+			db->last_diff_line = line;
 			return i;
 		}
 	}
@@ -199,48 +197,48 @@ difference_idx(struct dblbuf *db, scrcoord line)
 }
 
 static int
-redraw_cc(struct dblbuf *db, scrcoord x, scrcoord y)
+redraw_cc(struct shm_allocator_pdata pd, struct dblbuf *db, scrcoord x, scrcoord y)
 {
-	if(db->internal.is_redrawing) {
-		if(! color_eq(db->cur_scr[x][y].fg, db->internal.last_fg)) {
-			db->internal.last_fg = db->cur_scr[x][y].fg;
-			if(output_fg(db, db->cur_scr[x][y]) != STUI_OK) return STUI_ERR;
+	if(db->is_redrawing) {
+		if(! color_eq(GET_CC(pd,db->cur_scr,x,y)->fg, db->last_fg)) {
+			db->last_fg = GET_CC(pd,db->cur_scr,x,y)->fg;
+			if(output_fg(db, *GET_CC(pd,db->cur_scr,x,y)) != STUI_OK) return STUI_ERR;
 		}
-		if(! color_eq(db->cur_scr[x][y].bg, db->internal.last_bg)) {
-			db->internal.last_bg = db->cur_scr[x][y].bg;
-			if(output_bg(db, db->cur_scr[x][y]) != STUI_OK) return STUI_ERR;
+		if(! color_eq(GET_CC(pd,db->cur_scr,x,y)->bg, db->last_bg)) {
+			db->last_bg = GET_CC(pd,db->cur_scr,x,y)->bg;
+			if(output_bg(db, *GET_CC(pd,db->cur_scr,x,y)) != STUI_OK) return STUI_ERR;
 		}
 		if(end_color_escape(db) != STUI_OK) return STUI_ERR;
-		return output_char(&db->outbuf, db->cur_scr[x][y]);
+		return output_char(&db->outbuf, *GET_CC(pd,db->cur_scr,x,y));
 	} else {
-		db->internal.is_redrawing = 1;
+		db->is_redrawing = 1;
 		if(move_to(&db->outbuf, x, y) != STUI_OK) return STUI_ERR;
-		return output_cc(db, db->cur_scr[x][y]);
+		return output_cc(db, *GET_CC(pd,db->cur_scr,x,y));
 	}
 }
 
 static int
-redraw_line(struct dblbuf *db, scrcoord line)
+redraw_line(struct shm_allocator_pdata pd, struct dblbuf *db, scrcoord line)
 {
 	scrcoord i;
 
-	while((i = difference_idx(db, line)) != (scrcoord)-1) {
-		if(redraw_cc(db, i, line) != STUI_OK) return STUI_ERR;
+	while((i = difference_idx(pd, db, line)) != (scrcoord)-1) {
+		if(redraw_cc(pd, db, i, line) != STUI_OK) return STUI_ERR;
 	}
 
 	return STUI_OK;
 }
 
 static int
-redraw_dblbuf(struct dblbuf *db)
+redraw_dblbuf(struct shm_allocator_pdata pd, struct dblbuf *db)
 {
 	scrcoord ln;
 
-	db->internal.is_redrawing = 0;
-	db->internal.last_diff_line = db->internal.last_diff_idx = -1;
+	db->is_redrawing = 0;
+	db->last_diff_line = db->last_diff_idx = -1;
 
-	for(ln = 0; ln < db->height; ++ln) {
-		if(redraw_line(db, ln) != STUI_OK) return STUI_ERR;
+	for(ln = 0; ln < db->cur_scr.height; ++ln) {
+		if(redraw_line(pd, db, ln) != STUI_OK) return STUI_ERR;
 	}
 	
 	return STUI_OK;

@@ -2,53 +2,24 @@
 #define SCREEN_H
 
 #include "util.h"
+#include "base/charcell.h"
+#include "shm/allocator.h"
 
 #include <stdint.h>
 
 typedef int16_t scrcoord;
-enum color_type {
-	CLR_USR,
-	CLR_256,
-	CLR_RGB,
-	CLR_DEFAULT,
-	CLR_UNSET,
-	CLR_INT = -1,
-};
-struct color {
-	enum color_type type;
-	union {
-		uint8_t usr;
-		uint8_t c256;
-		struct {
-			uint8_t r;
-			uint8_t g;
-			uint8_t b;
-		} rgb;
-	} data;
-};
-typedef uint8_t attributes;;
-enum attribute {
-	ATT_BOLD = 1,
-	ATT_FAINT = 2,
-	ATT_ITALIC = 4,
-	ATT_UNDERLINE = 8,
-	ATT_BLINKING = 16,
-	ATT_INVERSE = 32,
-	ATT_HIDDEN = 64,
-	ATT_STRIKETHROUGH = 128,
-};
-struct char_cell {
-	struct color fg, bg;
-	attributes attr;
-	char c;
+struct screen {
+	scrcoord width;
+	scrcoord height;
+	shmptr_of(struct char_cell) ccs; /* row-major */
 };
 
-int  color_eq       (struct color a, struct color b);
-int  init_screen    (struct char_cell ***scr, scrcoord width, scrcoord height);
-void free_screen    (struct char_cell  **scr, scrcoord width, scrcoord height);
-int  resize_screen  (struct char_cell ***scr, scrcoord width, scrcoord height, scrcoord new_width, scrcoord new_height);
-int  set_cell_screen(struct char_cell  **scr, scrcoord width, scrcoord height, struct char_cell cc, scrcoord x, scrcoord y);
-int copy_screen(struct char_cell ***scr, struct char_cell **src, scrcoord prev_width, scrcoord new_width, scrcoord prev_height, scrcoord new_height);
+int  init_screen    (struct shm_allocator_pdata *pd, struct screen *scr, scrcoord width, scrcoord height);
+void free_screen    (struct shm_allocator_pdata *pd, struct screen scr);
+int  resize_screen  (struct shm_allocator_pdata *pd, struct screen *scr, scrcoord new_width, scrcoord new_height);
+int  set_cell_screen(struct shm_allocator_pdata pd, struct screen scr, struct char_cell cc, scrcoord x, scrcoord y);
+shmptr_of(struct char_cell) cell_at_screen(struct shm_allocator_pdata pd, struct screen scr, scrcoord x, scrcoord y);
+int  copy_screen    (struct shm_allocator_pdata *pd, struct screen *scr, struct screen src);
 
 #endif
 
