@@ -5,7 +5,7 @@
 #include <unistd.h>
 #include <poll.h>
 
-static int parse_char(struct input_translator *it, char c);
+static int parse_char(struct shm_allocator_pdata *pd, struct input_translator *it, char c);
 
 void
 init_input_translator(struct input_translator *it)
@@ -15,13 +15,13 @@ init_input_translator(struct input_translator *it)
 }
 
 void
-free_input_translator(struct input_translator *it)
+free_input_translator(struct shm_allocator_pdata *pd, struct input_translator *it)
 {
-	free_input_ctl(&it->ic);
+	free_input_ctl(pd, &it->ic);
 }
 
 int
-run_input_translator(struct input_translator *it, int fd)
+run_input_translator(struct shm_allocator_pdata *pd, struct input_translator *it, int fd)
 {
 	char c;
 	int ret;
@@ -41,14 +41,14 @@ run_input_translator(struct input_translator *it, int fd)
 				if(c == 127) {
 					it->state = ITS_ESC;
 				} else {
-					if(parse_char(it, c) != STUI_OK) return STUI_ERR;
+					if(parse_char(pd, it, c) != STUI_OK) return STUI_ERR;
 				}
 				break;
 			case ITS_ESC:
 				if(c == '[') {
 					it->state = ITS_CSI;
 				} else {
-					if(add_input_ctl(&it->ic, (struct input_evt){.type=IT_KEY,.data={.key={.raw=127,.parsed=127,.mods=0}}}) != STUI_OK) return STUI_ERR;
+					if(add_input_ctl(pd, &it->ic, (struct input_evt){.type=IT_KEY,.data={.key={.raw=127,.parsed=127,.mods=0}}}) != STUI_OK) return STUI_ERR;
 				}
 				break;
 			case ITS_CSI:
@@ -66,7 +66,7 @@ run_input_translator(struct input_translator *it, int fd)
 }
 
 static int
-parse_char(struct input_translator *it, char c)
+parse_char(struct shm_allocator_pdata *pd, struct input_translator *it, char c)
 {
 #define SIMPLE_KEY(RAW, KEY, SHIFT, CONTROL) { .type=IT_KEY, .data={.key={.raw=RAW, .parsed=KEY, .mods=SHIFT?IM_SHIFT:0 | CONTROL?IM_CONTROL:0 }} },
 #define SPECIAL_KEY(RAW, KEY, SHIFT, CONTROL) {.type=IT_SPECIALKEY, .data={.special={.raw={RAW,'\0'}, .parsed=KEY, .mods=SHIFT?IM_SHIFT:0 | CONTROL?IM_CONTROL:0}} },
@@ -207,6 +207,6 @@ parse_char(struct input_translator *it, char c)
 		return STUI_ERR;
 	}
 
-	return add_input_ctl(&it->ic, lookup[(uint8_t)c]);
+	return add_input_ctl(pd, &it->ic, lookup[(uint8_t)c]);
 }
 

@@ -4,7 +4,6 @@ BUILDDIR = build
 TESTDIR = tests
 #TARGET = test
 
-#SRC = $(wildcard $(SRCDIR)/*.c)
 SRC = $(foreach MODULE, $(MODULES), $(wildcard $(SRCDIR)/$(MODULE)/*.c))
 OBJ = $(SRC:$(SRCDIR)/%.c=$(BUILDDIR)/%.o)
 TESTSRC = $(wildcard $(TESTDIR)/*.c)

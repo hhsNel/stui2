@@ -1,6 +1,8 @@
 #ifndef ELEMENTS_H
 #define ELEMENTS_H
 
+#include <stdint.h>
+
 #include "base/screen.h"
 #include "shm/allocator.h"
 

@@ -45,22 +45,22 @@ int main(int argc, char **argv) {
  	dump_dblbuf(&pd, &db, STDOUT_FILENO);
  
  	init_input_ctl(&ic);
- 	evt = get_input_ctl(&ic);
+ 	evt = get_input_ctl(pd, &ic);
  	evt.type = IT_KEY;
  	evt.data.key.raw = 'A';
  	evt.data.key.parsed = 'a';
  	evt.data.key.mods = IM_SHIFT;
- 	add_input_ctl(&ic, evt);
+ 	add_input_ctl(&pd, &ic, evt);
  	evt.data.key.raw = 'B';
  	evt.data.key.parsed = 'b';
- 	add_input_ctl(&ic, evt);
- 	evt = get_input_ctl(&ic);
- 	evt = get_input_ctl(&ic);
+ 	add_input_ctl(&pd, &ic, evt);
+ 	evt = get_input_ctl(pd, &ic);
+ 	evt = get_input_ctl(pd, &ic);
  
  	init_input_translator(&it);
  	while(1) {
- 		run_input_translator(&it, STDIN_FILENO);
- 		while((evt = get_input_ctl(&it.ic)).type != IT_NONE) {
+ 		run_input_translator(&pd, &it, STDIN_FILENO);
+ 		while((evt = get_input_ctl(pd, &it.ic)).type != IT_NONE) {
  			if(evt.type == IT_KEY) {
  				printf("Key %c recognized as %c with flags %d\n", evt.data.key.raw,
  						evt.data.key.parsed, (int)evt.data.key.mods);
@@ -69,11 +69,12 @@ int main(int argc, char **argv) {
  						(int)evt.data.special.parsed, (int)evt.data.special.mods);
  			}
  			if(evt.data.key.parsed == 'q' && evt.data.key.mods == IM_SHIFT) {
- 				exit(0);
+				goto cleanup;
  			}
  		}
  		sleep(1);
  	}
+cleanup:
  
 	free_shm_allocator(pd, 1);
 	return 0;

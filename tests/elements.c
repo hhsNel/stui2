@@ -55,6 +55,20 @@ int main(int argc, char **argv) {
 
 	proot = fromshmptr(struct z_index_node, pd, root);
 	print_tree(pd, proot);
+	printf("---\n");
+
+	fromshmptr(struct element, pd, el0)->z_index = 3;
+	fromshmptr(struct element, pd, el1)->z_index = 4;
+	fromshmptr(struct element, pd, el2)->z_index = 5;
+	fromshmptr(struct element, pd, el3)->z_index = 6;
+
+	z_index_list_insert(&pd, &root, 3, el0);
+	z_index_list_insert(&pd, &root, 4, el1);
+	z_index_list_insert(&pd, &root, 5, el2);
+	z_index_list_insert(&pd, &root, 6, el3);
+
+	proot = fromshmptr(struct z_index_node, pd, root);
+	print_tree(pd, proot);
 
 	free_shm_allocator(pd, 1);
 }
