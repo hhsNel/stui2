@@ -5,7 +5,7 @@
 #include <unistd.h>
 #include <poll.h>
 
-static int parse_char(struct shm_allocator_pdata *pd, struct input_translator *it, char c);
+static int parse_char(struct shm_allocator_pdata *pd, shmptr_of(struct input_translator) it, char c);
 
 void
 init_input_translator(struct input_translator *it)
@@ -15,45 +15,55 @@ init_input_translator(struct input_translator *it)
 }
 
 void
-free_input_translator(struct shm_allocator_pdata *pd, struct input_translator *it)
+free_input_translator(struct shm_allocator_pdata *pd, shmptr_of(struct input_translator) it)
 {
-	free_input_ctl(pd, &it->ic);
+	struct input_translator *pit;
+
+	shm_access(pd);
+
+	pit = fromshmptr(struct input_translator, *pd, it);
+	free_input_ctl(pd, toshmptr(*pd, &pit->ic));
+
+	shm_leave(pd);
 }
 
 int
-run_input_translator(struct shm_allocator_pdata *pd, struct input_translator *it, int fd)
+run_input_translator(struct shm_allocator_pdata *pd, shmptr_of(struct input_translator) it, int fd)
 {
 	char c;
 	int ret;
 	struct pollfd pfd;
+	struct input_translator *pit;
 
 	pfd.fd = fd;
 	pfd.events = POLLIN;
 
+	pit = fromshmptr(struct input_translator, *pd, it);
 	while((ret = poll(&pfd, 1, 0)) > 0) {
 		if(pfd.revents & POLLIN) {
 			if(read(fd, &c, 1) <= 0) {
 				return STUI_ERR;
 			}
 
-			switch(it->state) {
+			switch(pit->state) {
 			case ITS_NORMAL:
 				if(c == 127) {
-					it->state = ITS_ESC;
+					pit->state = ITS_ESC;
 				} else {
 					if(parse_char(pd, it, c) != STUI_OK) return STUI_ERR;
+					pit = fromshmptr(struct input_translator, *pd, it);
 				}
 				break;
 			case ITS_ESC:
 				if(c == '[') {
-					it->state = ITS_CSI;
+					pit->state = ITS_CSI;
 				} else {
-					if(add_input_ctl(pd, &it->ic, (struct input_evt){.type=IT_KEY,.data={.key={.raw=127,.parsed=127,.mods=0}}}) != STUI_OK) return STUI_ERR;
+					if(add_input_ctl(pd, toshmptr(*pd, &pit->ic), (struct input_evt){.type=IT_KEY,.data={.key={.raw=127,.parsed=127,.mods=0}}}) != STUI_OK) return STUI_ERR;
 				}
 				break;
 			case ITS_CSI:
 				/* TODO */
-				it->state = ITS_NORMAL;
+				pit->state = ITS_NORMAL;
 				break;
 			}
 		}
@@ -66,7 +76,7 @@ run_input_translator(struct shm_allocator_pdata *pd, struct input_translator *it
 }
 
 static int
-parse_char(struct shm_allocator_pdata *pd, struct input_translator *it, char c)
+parse_char(struct shm_allocator_pdata *pd, shmptr_of(struct input_translator) it, char c)
 {
 #define SIMPLE_KEY(RAW, KEY, SHIFT, CONTROL) { .type=IT_KEY, .data={.key={.raw=RAW, .parsed=KEY, .mods=SHIFT?IM_SHIFT:0 | CONTROL?IM_CONTROL:0 }} },
 #define SPECIAL_KEY(RAW, KEY, SHIFT, CONTROL) {.type=IT_SPECIALKEY, .data={.special={.raw={RAW,'\0'}, .parsed=KEY, .mods=SHIFT?IM_SHIFT:0 | CONTROL?IM_CONTROL:0}} },
@@ -202,11 +212,22 @@ parse_char(struct shm_allocator_pdata *pd, struct input_translator *it, char c)
 	};
 #undef SIMPLE_KEY
 #undef SPECIAL_KEY
+	struct input_translator *pit;
 
 	if(c >= 127) {
 		return STUI_ERR;
 	}
 
-	return add_input_ctl(pd, &it->ic, lookup[(uint8_t)c]);
+	shm_access(pd);
+
+	pit = fromshmptr(struct input_translator, *pd, it);
+
+	if(add_input_ctl(pd, toshmptr(*pd, &pit->ic), lookup[(uint8_t)c]) != STUI_OK) {
+		shm_leave(pd);
+		return STUI_ERR;
+	}
+
+	shm_leave(pd);
+	return STUI_OK;
 }
 

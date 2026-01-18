@@ -18,11 +18,11 @@ struct dblbuf {
 	int is_redrawing;
 };
 
-int  init_dblbuf  (struct shm_allocator_pdata *pd, struct dblbuf *db, scrcoord w, scrcoord h);
-void free_dblbuf  (struct shm_allocator_pdata *pd, struct dblbuf *db);
-int  resize_dblbuf(struct shm_allocator_pdata *pd, struct dblbuf *db, scrcoord new_width, scrcoord new_height);
+int  init_dblbuf  (struct shm_allocator_pdata *pd, shmptr_of(struct dblbuf) db, scrcoord w, scrcoord h);
+void free_dblbuf  (struct shm_allocator_pdata *pd, shmptr_of(struct dblbuf) db);
+int  resize_dblbuf(struct shm_allocator_pdata *pd, shmptr_of(struct dblbuf) db, scrcoord new_width, scrcoord new_height);
 int  set_cell     (struct shm_allocator_pdata  pd, struct dblbuf *db, struct char_cell cc, scrcoord x, scrcoord y);
-int  dump_dblbuf  (struct shm_allocator_pdata *pd, struct dblbuf *db, int fd);
+int  dump_dblbuf  (struct shm_allocator_pdata *pd, shmptr_of(struct dblbuf) db, int fd);
 
 #endif
 

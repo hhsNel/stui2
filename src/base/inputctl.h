@@ -47,8 +47,8 @@ struct input_ctl {
 };
 
 void init_input_ctl(struct input_ctl *ic);
-void free_input_ctl(struct shm_allocator_pdata *pd, struct input_ctl *ic);
-int  add_input_ctl (struct shm_allocator_pdata *pd, struct input_ctl *ic, struct input_evt evt);
+void free_input_ctl(struct shm_allocator_pdata *pd, shmptr_of(struct input_ctl) ic);
+int  add_input_ctl (struct shm_allocator_pdata *pd, shmptr_of(struct input_ctl) ic, struct input_evt evt);
 struct input_evt get_input_ctl(struct shm_allocator_pdata pd, struct input_ctl *ic);
 
 #endif

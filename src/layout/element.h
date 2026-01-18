@@ -5,6 +5,7 @@
 
 #include "base/screen.h"
 #include "shm/allocator.h"
+#include "elements/dispatch.h"
 
 #define RESIZABLE_COORD_BASE 16
 struct coord {
@@ -17,20 +18,20 @@ struct rect {
 	struct coord width, height;
 };
 
-enum element_type {
-	ELEMENT_CUSTOM, /* TODO */
+struct scr_rect {
+	scrcoord x, y;
+	scrcoord width, height;
 };
-enum element_flag {
-	ASDF, /* TODO */
-};
+
 typedef uint16_t element_z_index;
-typedef uint16_t element_flags;
+struct window;
 struct element {
-	enum element_type type;
 	struct rect pos;
-	element_flags flags;
+	struct scr_rect scr_pos;
 	element_z_index z_index;
-	void *data;
+	shmptr_of(struct screen) render_output;
+
+	struct element_data data;
 };
 
 struct element_list_node {
@@ -52,11 +53,15 @@ struct z_index_node {
 	struct element_list list;
 };
 
-int element_list_insert(struct shm_allocator_pdata *pd, shmptr_of(struct element_list) list, shmptr_of(struct element) el);
-int element_list_remove(struct shm_allocator_pdata *pd, shmptr_of(struct element_list) list, shmptr_of(struct element) el);
+void init_element_list(struct element_list *list);
+void free_element_list(struct shm_allocator_pdata *pd, struct element_list list);
+int  element_list_insert(struct shm_allocator_pdata *pd, shmptr_of(struct element_list) list, shmptr_of(struct element) el);
+int  element_list_remove(struct shm_allocator_pdata *pd, shmptr_of(struct element_list) list, shmptr_of(struct element) el);
+
+void free_element_tree(struct shm_allocator_pdata *pd, shmptr_of(struct z_index_node) *root);
 struct element_list *z_index_find_list(struct shm_allocator_pdata *pd, shmptr_of(struct z_index_node) root, element_z_index index);
-int z_index_list_insert(struct shm_allocator_pdata *pd, shmptr_of(struct z_index_node) *root, element_z_index index, shmptr_of(struct element) el);
-int z_index_remove(struct shm_allocator_pdata *pd, shmptr_of(struct z_index_node) *root, shmptr_of(struct element) el);
+int  z_index_list_insert(struct shm_allocator_pdata *pd, shmptr_of(struct z_index_node) *root, element_z_index index, shmptr_of(struct element) el);
+int  z_index_remove(struct shm_allocator_pdata *pd, shmptr_of(struct z_index_node) *root, shmptr_of(struct element) el);
 
 #endif
 

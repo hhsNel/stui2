@@ -1,5 +1,5 @@
 SRCDIR = src
-MODULES = base layout shm
+MODULES = base layout shm elements
 BUILDDIR = build
 TESTDIR = tests
 #TARGET = test

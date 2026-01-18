@@ -8,6 +8,28 @@ static shmptr_of(struct z_index_node) create_z_index_node(struct shm_allocator_p
 static void z_index_rotate_r (struct shm_allocator_pdata *pd, shmptr_of(struct z_index_node) *node);
 static void z_index_rotate_l (struct shm_allocator_pdata *pd, shmptr_of(struct z_index_node) *node);
 
+void
+init_element_list(struct element_list *list)
+{
+	list->head = list->tail = SHMNULL;
+}
+
+void
+free_element_list(struct shm_allocator_pdata *pd, struct element_list list)
+{
+	shmptr_of(struct element_list_node) node;
+	shmptr_of(struct element_list_node) next;
+	struct element_list_node *pnode;
+
+	node = list.head;
+	while(node != SHMNULL) {
+		pnode = fromshmptr(struct element_list_node, *pd, node);
+		next = pnode->next;
+		shm_free(pd, node);
+		node = next;
+	}
+}
+
 int
 element_list_insert(struct shm_allocator_pdata *pd, shmptr_of(struct element_list) list, shmptr_of(struct element) el)
 {
@@ -68,6 +90,23 @@ element_list_remove(struct shm_allocator_pdata *pd, shmptr_of(struct element_lis
 
 	shm_leave(pd);
 	return STUI_OK;
+}
+
+void
+free_element_tree(struct shm_allocator_pdata *pd, shmptr_of(struct z_index_node) *root)
+{
+	struct z_index_node *proot;
+
+	if(*root == SHMNULL) {
+		return;
+	}
+
+	proot = fromshmptr(struct z_index_node, *pd, *root);
+	free_element_tree(pd, &proot->left);
+	proot = fromshmptr(struct z_index_node, *pd, *root);
+	free_element_tree(pd, &proot->right);
+
+	shm_free(pd, *root);
 }
 
 struct element_list *

@@ -14,8 +14,8 @@ struct input_translator {
 };
 
 void init_input_translator(struct input_translator *it);
-void free_input_translator(struct shm_allocator_pdata *pd, struct input_translator *it);
-int   run_input_translator(struct shm_allocator_pdata *pd, struct input_translator *it, int fd);
+void free_input_translator(struct shm_allocator_pdata *pd, shmptr_of(struct input_translator) it);
+int   run_input_translator(struct shm_allocator_pdata *pd, shmptr_of(struct input_translator) it, int fd);
 
 #endif
 
