@@ -30,8 +30,8 @@ free_element_list(struct shm_allocator_pdata *pd, struct element_list list)
 	}
 }
 
-int
-element_list_insert(struct shm_allocator_pdata *pd, shmptr_of(struct element_list) list, shmptr_of(struct element) el)
+shmptr_of(struct element)
+element_list_insert(struct shm_allocator_pdata *pd, shmptr_of(struct element_list) list, struct element el)
 {
 	shmptr_of(struct element_list_node) node;
 	struct element_list_node *pnode;
@@ -41,7 +41,8 @@ element_list_insert(struct shm_allocator_pdata *pd, shmptr_of(struct element_lis
 
 	node = shm_alloc(pd, sizeof(struct element_list_node));
 	if(node == SHMNULL) {
-		return STUI_ERR;
+		shm_leave(pd);
+		return SHMNULL;
 	}
 	pnode = fromshmptr(struct element_list_node, *pd, node);
 	plist = fromshmptr(struct element_list, *pd, list);
@@ -57,7 +58,7 @@ element_list_insert(struct shm_allocator_pdata *pd, shmptr_of(struct element_lis
 	}
 
 	shm_leave(pd);
-	return STUI_OK;
+	return toshmptr(*pd, &pnode->el);
 }
 
 int
@@ -131,12 +132,13 @@ z_index_find_list(struct shm_allocator_pdata *pd, shmptr_of(struct z_index_node)
 	return &proot->list;
 }
 
-int
-z_index_list_insert(struct shm_allocator_pdata *pd, shmptr_of(struct z_index_node) *root, element_z_index index, shmptr_of(struct element) el)
+shmptr_of(struct element)
+z_index_list_insert(struct shm_allocator_pdata *pd, shmptr_of(struct z_index_node) *root, element_z_index index, struct element el)
 {
 	struct z_index_node *proot;
 	struct z_index_node *pleft, *pright;
 	int8_t balance;
+	shmptr_of(struct element) element;
 
 	shm_access(pd);
 
@@ -144,23 +146,31 @@ z_index_list_insert(struct shm_allocator_pdata *pd, shmptr_of(struct z_index_nod
 	if(*root == SHMNULL) {
 		*root = create_z_index_node(pd, index);
 		if(*root == SHMNULL) {
-			return STUI_ERR;
+			return SHMNULL;
 		}
 		proot = fromshmptr(struct z_index_node, *pd, *root);
-		if(element_list_insert(pd, toshmptr(*pd, &proot->list), el) != STUI_OK) return STUI_ERR;
+		element = element_list_insert(pd, toshmptr(*pd, &proot->list), el);
 		shm_leave(pd);
-		return STUI_OK;
+		return element;
 	} else if(proot->index < index) {
 		proot = fromshmptr(struct z_index_node, *pd, *root);
-		if(z_index_list_insert(pd, &proot->right, index, el) != STUI_OK) return STUI_ERR;
+		element = z_index_list_insert(pd, &proot->right, index, el);
+		if(element == SHMNULL) {
+			shm_leave(pd);
+			return SHMNULL;
+		}
 	} else if(proot->index > index) {
 		proot = fromshmptr(struct z_index_node, *pd, *root);
-		if(z_index_list_insert(pd, &proot->left, index, el) != STUI_OK) return STUI_ERR;
+		element = z_index_list_insert(pd, &proot->left, index, el);
+		if(element == SHMNULL) {
+			shm_leave(pd);
+			return SHMNULL;
+		}
 	} else { /* found node with index */
 		proot = fromshmptr(struct z_index_node, *pd, *root);
-		if(element_list_insert(pd, toshmptr(*pd, &proot->list), el) != STUI_OK) return STUI_ERR;
+		element = element_list_insert(pd, toshmptr(*pd, &proot->list), el);
 		shm_leave(pd);
-		return STUI_OK;
+		return element;
 	}
 
 	proot = fromshmptr(struct z_index_node, *pd, *root);
@@ -187,7 +197,7 @@ z_index_list_insert(struct shm_allocator_pdata *pd, shmptr_of(struct z_index_nod
 	
 
 	shm_leave(pd);
-	return STUI_OK;
+	return element;
 }
 
 int

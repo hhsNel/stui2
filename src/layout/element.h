@@ -37,7 +37,7 @@ struct element {
 struct element_list_node {
 	shmptr_of(struct element_list_node) prev;
 	shmptr_of(struct element_list_node) next;
-	shmptr_of(struct element) el;
+	struct element el;
 };
 struct element_list {
 	shmptr_of(struct element_list_node) head;
@@ -55,12 +55,12 @@ struct z_index_node {
 
 void init_element_list(struct element_list *list);
 void free_element_list(struct shm_allocator_pdata *pd, struct element_list list);
-int  element_list_insert(struct shm_allocator_pdata *pd, shmptr_of(struct element_list) list, shmptr_of(struct element) el);
+shmptr_of(struct element) element_list_insert(struct shm_allocator_pdata *pd, shmptr_of(struct element_list) list, struct element el);
 int  element_list_remove(struct shm_allocator_pdata *pd, shmptr_of(struct element_list) list, shmptr_of(struct element) el);
 
 void free_element_tree(struct shm_allocator_pdata *pd, shmptr_of(struct z_index_node) *root);
 struct element_list *z_index_find_list(struct shm_allocator_pdata *pd, shmptr_of(struct z_index_node) root, element_z_index index);
-int  z_index_list_insert(struct shm_allocator_pdata *pd, shmptr_of(struct z_index_node) *root, element_z_index index, shmptr_of(struct element) el);
+shmptr_of(struct element) z_index_list_insert(struct shm_allocator_pdata *pd, shmptr_of(struct z_index_node) *root, element_z_index index, struct element el);
 int  z_index_remove(struct shm_allocator_pdata *pd, shmptr_of(struct z_index_node) *root, shmptr_of(struct element) el);
 
 #endif
