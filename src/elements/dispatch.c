@@ -30,22 +30,31 @@
 	//MACRO(ELEMENT_CUSTOM, custom, __VA_ARGS__)
 
 int
-dispatch_init_element(struct shm_allocator_pdata *pd, struct element *el, enum element_type type, va_list args)
+dispatch_init_element(struct shm_allocator_pdata *pd, shmptr_of(struct element) el, enum element_type type, va_list args)
 {
-	el->data.type = type;
-	el->data.flags = 0;
+	struct element *pel;
+
+	pel = fromshmptr(struct element, *pd, el);
+	pel->data.type = type;
+	pel->data.flags = 0;
 	DISPATCH(type, init_element_, pd, el, args);
 }
 
 void
-dispatch_free_element(struct shm_allocator_pdata *pd, struct element *el)
+dispatch_free_element(struct shm_allocator_pdata *pd, shmptr_of(struct element) el)
 {
-	DISPATCH_NORET(el->data.type, free_element_, pd, el);
+	struct element *pel;
+
+	pel = fromshmptr(struct element, *pd, el);
+	DISPATCH_NORET(pel->data.type, free_element_, pd, el);
 }
 
 int
-dispatch_element_draw(struct shm_allocator_pdata *pd, struct element *el)
+dispatch_element_draw(struct shm_allocator_pdata *pd, shmptr_of(struct element) el)
 {
-	DISPATCH(el->data.type, element_draw_, pd, el);
+	struct element *pel;
+
+	pel = fromshmptr(struct element, *pd, el);
+	DISPATCH(pel->data.type, element_draw_, pd, el);
 }
 

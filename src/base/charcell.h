@@ -22,7 +22,7 @@ struct color {
 		} rgb;
 	} data;
 };
-typedef uint8_t attributes;;
+typedef uint8_t attributes;
 enum attribute {
 	ATT_BOLD = 1,
 	ATT_FAINT = 2,

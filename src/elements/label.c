@@ -13,8 +13,9 @@ struct label_data {
 };
 
 int
-init_element_label(struct shm_allocator_pdata *pd, struct element *el, va_list args)
+init_element_label(struct shm_allocator_pdata *pd, shmptr_of(struct element) el, va_list args)
 {
+	struct element *pel;
 	struct label_data *pdata;
 	char *pstring;
 	struct char_cell style;
@@ -22,18 +23,21 @@ init_element_label(struct shm_allocator_pdata *pd, struct element *el, va_list a
 
 	style = va_arg(args, struct char_cell);
 	string = va_arg(args, char *);
+	pel = fromshmptr(struct element, *pd, el);
 
-	el->data.type_data = shm_alloc(pd, sizeof(struct label_data));
-	if(el->data.type_data == SHMNULL) {
+	pel->data.type_data = shm_alloc(pd, sizeof(struct label_data));
+	pel = fromshmptr(struct element, *pd, el);
+	if(pel->data.type_data == SHMNULL) {
 		return STUI_ERR;
 	}
-	pdata = fromshmptr(struct label_data, *pd, el->data.type_data);
+	pdata = fromshmptr(struct label_data, *pd, pel->data.type_data);
 	pdata->style = style;
 	pdata->string = shm_alloc(pd, strlen(string) + 1);
+	pel = fromshmptr(struct element, *pd, el);
+	pdata = fromshmptr(struct label_data, *pd, pel->data.type_data);
 	if(pdata->string == SHMNULL) {
 		return STUI_ERR;
 	}
-	pdata = fromshmptr(struct label_data, *pd, el->data.type_data);
 	pstring = fromshmptr(char, *pd, pdata->string);
 	strcpy(pstring, string);
 
@@ -41,29 +45,34 @@ init_element_label(struct shm_allocator_pdata *pd, struct element *el, va_list a
 }
 
 void
-free_element_label(struct shm_allocator_pdata *pd, struct element *el)
+free_element_label(struct shm_allocator_pdata *pd, shmptr_of(struct element) el)
 {
+	struct element *pel;
 	struct label_data *pdata;
 
-	pdata = fromshmptr(struct label_data, *pd, el->data.type_data);
+	pel = fromshmptr(struct element, *pd, el);
+	pdata = fromshmptr(struct label_data, *pd, pel->data.type_data);
 	shm_free(pd, pdata->string);
-	shm_free(pd, el->data.type_data);
+	pel = fromshmptr(struct element, *pd, el);
+	shm_free(pd, pel->data.type_data);
 }
 
 int
-element_draw_label(struct shm_allocator_pdata *pd, struct element *el)
+element_draw_label(struct shm_allocator_pdata *pd, shmptr_of(struct element) el)
 {
+	struct element *pel;
 	scrcoord i, j, x, y;
 	struct label_data *pdata;
 	char *iter;
 	struct screen *output;
 
-	pdata = fromshmptr(struct label_data, *pd, el->data.type_data);
+	pel = fromshmptr(struct element, *pd, el);
+	pdata = fromshmptr(struct label_data, *pd, pel->data.type_data);
 	iter = fromshmptr(char, *pd, pdata->string);
-	output = fromshmptr(struct screen, *pd, el->render_output);
-	for(i = 0; i < el->scr_pos.height; ++i) {
-		y = el->scr_pos.y + i;
-		for(j = 0; j < el->scr_pos.width; ++j, ++iter) {
+	output = fromshmptr(struct screen, *pd, pel->render_output);
+	for(i = 0; i < pel->scr_pos.height; ++i) {
+		y = pel->scr_pos.y + i;
+		for(j = 0; j < pel->scr_pos.width; ++j, ++iter) {
 			switch(*iter) {
 			case '\0':
 				return STUI_OK;
@@ -71,7 +80,7 @@ element_draw_label(struct shm_allocator_pdata *pd, struct element *el)
 				++iter;
 				goto line_end;
 			}
-			x = el->scr_pos.x + j;
+			x = pel->scr_pos.x + j;
 			pdata->style.c = *iter;
 			if(set_cell_screen(*pd, *output, pdata->style, x, y) != STUI_OK) {
 				return STUI_ERR;

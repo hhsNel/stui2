@@ -24,9 +24,9 @@ struct element_data {
 
 struct element;
 
-int  dispatch_init_element(struct shm_allocator_pdata *pd, struct element *el, enum element_type type, va_list args);
-void dispatch_free_element(struct shm_allocator_pdata *pd, struct element *el);
-int  dispatch_element_draw(struct shm_allocator_pdata *pd, struct element *el);
+int  dispatch_init_element(struct shm_allocator_pdata *pd, shmptr_of(struct element) el, enum element_type type, va_list args);
+void dispatch_free_element(struct shm_allocator_pdata *pd, shmptr_of(struct element) el);
+int  dispatch_element_draw(struct shm_allocator_pdata *pd, shmptr_of(struct element) el);
 
 #endif
 

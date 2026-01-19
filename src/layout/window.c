@@ -1,14 +1,18 @@
 #include "layout/window.h"
 
 int
-init_window(struct shm_allocator_pdata *pd, struct window *win, scrcoord width, scrcoord height)
+init_window(struct shm_allocator_pdata *pd, shmptr_of(struct window) win, scrcoord width, scrcoord height)
 {
-	win->elements = SHMNULL;
-	win->active_element = SHMNULL;
+	struct window *pwin;
 
-	if(init_screen(pd, toshmptr(*pd, &win->scr), width, height) != STUI_OK) return STUI_ERR;
+	pwin = fromshmptr(struct window, *pd, win);
+	pwin->elements = SHMNULL;
+	pwin->active_element = SHMNULL;
 
-	init_input_ctl(&win->input_list);
+	if(init_screen(pd, toshmptr(*pd, &pwin->scr), width, height) != STUI_OK) return STUI_ERR;
+	pwin = fromshmptr(struct window, *pd, win);
+
+	init_input_ctl(&pwin->input_list);
 
 	return STUI_OK;
 }
@@ -24,8 +28,11 @@ free_window(struct shm_allocator_pdata *pd, struct window win)
 }
 
 int
-resize_window(struct shm_allocator_pdata *pd, struct window *win, scrcoord new_width, scrcoord new_height)
+resize_window(struct shm_allocator_pdata *pd, shmptr_of(struct window) win, scrcoord new_width, scrcoord new_height)
 {
-	return resize_screen(pd, toshmptr(*pd, &win->scr), new_width, new_height);
+	struct window *pwin;
+
+	pwin = fromshmptr(struct window, *pd, win);
+	return resize_screen(pd, toshmptr(*pd, &pwin->scr), new_width, new_height);
 }
 

@@ -14,9 +14,9 @@ struct window {
 	struct input_ctl input_list;
 };
 
-int  init_window(struct shm_allocator_pdata *pd, struct window *win, scrcoord width, scrcoord height);
+int  init_window(struct shm_allocator_pdata *pd, shmptr_of(struct window) win, scrcoord width, scrcoord height);
 void free_window(struct shm_allocator_pdata *pd, struct window win);
-int  resize_window(struct shm_allocator_pdata *pd, struct window *win, scrcoord new_width, scrcoord new_height);
+int  resize_window(struct shm_allocator_pdata *pd, shmptr_of(struct window) win, scrcoord new_width, scrcoord new_height);
 
 #endif
 

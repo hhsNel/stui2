@@ -339,6 +339,11 @@ redraw_cc(struct shm_allocator_pdata *pd, shmptr_of(struct dblbuf) db, scrcoord 
 	shm_access(pd);
 
 	pdb = fromshmptr(struct dblbuf, *pd, db);
+	if(move_to(pd, toshmptr(*pd, &pdb->outbuf), x, y) != STUI_OK) {
+		shm_leave(pd);
+		return STUI_ERR;
+	}
+	pdb = fromshmptr(struct dblbuf, *pd, db);
 	if(pdb->is_redrawing) {
 		if(! color_eq(GET_CC(*pd,pdb->cur_scr,x,y)->fg, pdb->last_fg)) {
 			pdb->last_fg = GET_CC(*pd,pdb->cur_scr,x,y)->fg;
@@ -367,11 +372,6 @@ redraw_cc(struct shm_allocator_pdata *pd, shmptr_of(struct dblbuf) db, scrcoord 
 		}
 	} else {
 		pdb->is_redrawing = 1;
-		if(move_to(pd, toshmptr(*pd, &pdb->outbuf), x, y) != STUI_OK) {
-			shm_leave(pd);
-			return STUI_ERR;
-		}
-		pdb = fromshmptr(struct dblbuf, *pd, db);
 		if(output_cc(pd, db, *GET_CC(*pd,pdb->cur_scr,x,y)) != STUI_OK) {
 			shm_leave(pd);
 			return STUI_ERR;

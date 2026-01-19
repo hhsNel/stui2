@@ -71,7 +71,7 @@ set_cell_screen(struct shm_allocator_pdata pd, struct screen scr, struct char_ce
 		return STUI_ERR;
 	}
 	pccs = fromshmptr(struct char_cell, pd, scr.ccs);
-	pccs[x + scr.width*y] = cc;
+	pccs[scr.width*y + x] = cc;
 	return STUI_OK;
 }
 
