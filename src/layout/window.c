@@ -6,25 +6,21 @@ init_window(struct shm_allocator_pdata *pd, shmptr_of(struct window) win, scrcoo
 	struct window *pwin;
 
 	pwin = fromshmptr(struct window, *pd, win);
-	pwin->elements = SHMNULL;
+	pwin->ins.root = SHMNULL;
 	pwin->active_element = SHMNULL;
-
-	if(init_screen(pd, toshmptr(*pd, &pwin->scr), width, height) != STUI_OK) return STUI_ERR;
-	pwin = fromshmptr(struct window, *pd, win);
 
 	init_input_ctl(&pwin->input_list);
 
 	return STUI_OK;
 }
 
+#include <stdio.h>
 void
-free_window(struct shm_allocator_pdata *pd, struct window win)
+free_window(struct shm_allocator_pdata *pd, struct window *win)
 {
-	free_element_tree(pd, &win.elements);
+	free_element_tree(pd, &win->ins.root);
 
-	free_screen(pd, win.scr);
-
-	free_input_ctl(pd, toshmptr(*pd, &win.input_list));
+	free_input_ctl(pd, toshmptr(*pd, &win->input_list));
 }
 
 int
@@ -33,6 +29,6 @@ resize_window(struct shm_allocator_pdata *pd, shmptr_of(struct window) win, scrc
 	struct window *pwin;
 
 	pwin = fromshmptr(struct window, *pd, win);
-	return resize_screen(pd, toshmptr(*pd, &pwin->scr), new_width, new_height);
+	return resize_screen(pd, toshmptr(*pd, &pwin->ins.target_scr), new_width, new_height);
 }
 

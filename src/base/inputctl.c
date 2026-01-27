@@ -25,7 +25,8 @@ free_input_ctl(struct shm_allocator_pdata *pd, shmptr_of(struct input_ctl) ic)
 	shm_access(pd);
 
 	pic = fromshmptr(struct input_ctl, *pd, ic);
-	if(pic->buf != SHMNULL) shm_free(pd,pic->buf);
+
+	if(pic->buf != SHMNULL) shm_free(pd, pic->buf);
 	init_input_ctl(pic);
 
 	shm_leave(pd);

@@ -1,6 +1,6 @@
+#define STUI2_GLOBAL
+#include "stui2.h"
 #include "layout/window.h"
-#include "elements/dispatch.h"
-#include "base/dblbuf.h"
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
@@ -15,51 +15,31 @@ void mklabel(struct shm_allocator_pdata *pd, shmptr_of(struct element) label, ..
 }
 
 int main(int argc, char **argv) {
-	struct shm_allocator_pdata pd;
-	shmptr_of(struct window) w;
-	struct window *pw;
-	shmptr_of(struct element) shmlabel;
-	struct element label;
 	struct char_cell cc;
-	shmptr_of(struct dblbuf) db;
-	struct dblbuf *pdb;
+	stui2_window win;
+	stui2_element label;
+	struct element *plabel;
+	stui2_insertable ins;
 
-	init_shm_allocator(&pd, NULL, 1, 0);
+	ginit_stui2();
 
-	w = shm_alloc(&pd, sizeof(struct window));
-	pw = fromshmptr(struct window, pd, w);
-
-	init_window(&pd, w, 32, 32);
-	pw = fromshmptr(struct window, pd, w);
-
-	label.z_index = 0;
-	label.scr_pos.x = 4;
-	label.scr_pos.y = 6;
-	label.scr_pos.width = 4;
-	label.scr_pos.height = 8;
-	label.render_output = toshmptr(pd, &pw->scr);
-	shmlabel = z_index_list_insert(&pd, &pw->elements, 0, label);
-	pw = fromshmptr(struct window, pd, w);
+	win = gmain_window();
+	ins = gwin_get_insertable(win);
 
 	cc.attr = 0;
 	cc.fg.type = cc.bg.type = CLR_DEFAULT;
-	mklabel(&pd, shmlabel, cc, "this is some text that is too long for this label");
-	pw = fromshmptr(struct window, pd, w);
+	label = gcreate_element(ins, 0, ELEMENT_LABEL, cc, "this is some text\nthat is too long\nfor this label");
 
-	dispatch_element_draw(&pd, shmlabel);
-	db = shm_alloc(&pd, sizeof(struct dblbuf));
-	pw = fromshmptr(struct window, pd, w);
+	plabel = fromshmptr(struct element, *(struct shm_allocator_pdata *)global_stui2, label);
+	plabel->scr_pos.x = 4;
+	plabel->scr_pos.y = 6;
+	plabel->scr_pos.width = 4;
+	plabel->scr_pos.height = 8;
 
-	init_dblbuf(&pd, db, 32, 32);
-	pw = fromshmptr(struct window, pd, w);
-	pdb = fromshmptr(struct dblbuf, pd, db);
+	grender(win);
 
-	free_screen(&pd, pdb->cur_scr);
-	pw = fromshmptr(struct window, pd, w);
-	pdb = fromshmptr(struct dblbuf, pd, db);
-	pdb->cur_scr = pw->scr;
- 	dump_dblbuf(&pd, db, STDOUT_FILENO);
+	gflush();
 
-	free_shm_allocator(pd, 1);
+	gexit_stui2();
 }
 

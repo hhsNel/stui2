@@ -7,7 +7,6 @@
 
 #include <stdint.h>
 
-typedef int16_t scrcoord;
 struct screen {
 	scrcoord width;
 	scrcoord height;

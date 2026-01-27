@@ -1,11 +1,10 @@
 #ifndef UTIL_H
 #define UTIL_H
 
+#include "stui2.h"
+
 #include <stdint.h>
 #include <stddef.h>
-
-#define STUI_OK  0
-#define STUI_ERR 1
 
 #define STUI_MB_EQ(BS,MASK) (((BS) & (MASK)) == (MASK))
 #define container_of(ptr, type, member) ({                      \

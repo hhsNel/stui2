@@ -7,29 +7,24 @@
 #include "shm/allocator.h"
 #include "elements/dispatch.h"
 
-#define RESIZABLE_COORD_BASE 16
-struct coord {
-	scrcoord fixed;
-	uint8_t resizable;
-};
-
-struct rect {
-	struct coord x, y;
-	struct coord width, height;
-};
-
 struct scr_rect {
 	scrcoord x, y;
 	scrcoord width, height;
 };
 
-typedef uint16_t element_z_index;
+enum element_flag {
+	ASDF, /* TODO */
+};
+typedef uint16_t element_flags;
+
 struct window;
 struct element {
 	struct rect pos;
 	struct scr_rect scr_pos;
 	element_z_index z_index;
 	shmptr_of(struct screen) render_output;
+	element_flags flags;
+	shmptr_of(struct window) parent_window;
 
 	struct element_data data;
 };
@@ -51,6 +46,11 @@ struct z_index_node {
 	uint8_t height;
 
 	struct element_list list;
+};
+
+struct stui2_insertable {
+	shmptr_of(struct z_index_node) root;
+	shmptr_of(struct screen) target_scr;
 };
 
 void init_element_list(struct element_list *list);

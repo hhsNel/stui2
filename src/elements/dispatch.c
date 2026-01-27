@@ -30,13 +30,12 @@
 	//MACRO(ELEMENT_CUSTOM, custom, __VA_ARGS__)
 
 int
-dispatch_init_element(struct shm_allocator_pdata *pd, shmptr_of(struct element) el, enum element_type type, va_list args)
+dispatch_init_element(struct shm_allocator_pdata *pd, shmptr_of(struct element) el, enum stui2_element_type type, va_list args)
 {
 	struct element *pel;
 
 	pel = fromshmptr(struct element, *pd, el);
 	pel->data.type = type;
-	pel->data.flags = 0;
 	DISPATCH(type, init_element_, pd, el, args);
 }
 
