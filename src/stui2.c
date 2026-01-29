@@ -30,8 +30,8 @@ struct common_data {
 static struct stui2 *current_stui2;
 
 static void global_sigwinch_handler(int sig);
-static void resize_elements(struct shm_allocator_pdata pd, struct window *win);
-static void r_resize_elements(struct shm_allocator_pdata pd, shmptr_of(struct z_index_node) node, scrcoord width, scrcoord height);
+static void resize_elements(struct shm_allocator_pdata *pd, struct window *win);
+static void r_resize_elements(struct shm_allocator_pdata *pd, shmptr_of(struct z_index_node) node);
 static int  r_render_z_index(struct shm_allocator_pdata *pd, shmptr_of(struct screen) scr, shmptr_of(struct z_index_node) node);
 
 struct stui2 *
@@ -140,7 +140,7 @@ stui2_create_element(struct stui2 *stui2, stui2_insertable ins, element_z_index 
 	el.pos = (struct rect){0};
 	el.render_output = pins->target_scr;
 	el.flags = 0;
-	el.parent_window = SHMNULL /* TODO */;
+	el.parent_insertable = ins;
 
 	shmel = z_index_list_insert(&stui2->pd, &pins->root, z_index, el);
 	if(shmel == SHMNULL) {
@@ -162,7 +162,7 @@ int
 stui2_free_element(struct stui2 *stui2, stui2_element el)
 {
 	struct element *pel;
-	struct window *pwin;
+	struct stui2_insertable *pins;
 	shmptr_of(struct z_index_node) node;
 
 	shm_access(&stui2->pd);
@@ -170,15 +170,15 @@ stui2_free_element(struct stui2 *stui2, stui2_element el)
 	dispatch_free_element(&stui2->pd, el);
 
 	pel = fromshmptr(struct element, stui2->pd, el);
-	pwin = fromshmptr(struct window, stui2->pd, pel->parent_window);
-	node = pwin->ins.root;
+	pins = fromshmptr(struct stui2_insertable, stui2->pd, pel->parent_insertable);
+	node = pins->root;
 	if(z_index_remove(&stui2->pd, &node, el) != STUI_OK) {
 		shm_leave(&stui2->pd);
 		return STUI_ERR;
 	}
 	pel = fromshmptr(struct element, stui2->pd, el);
-	pwin = fromshmptr(struct window, stui2->pd, pel->parent_window);
-	pwin->ins.root = node;
+	pins = fromshmptr(struct stui2_insertable, stui2->pd, pel->parent_insertable);
+	pins->root = node;
 
 	return STUI_OK;
 }
@@ -191,10 +191,8 @@ stui2_set_position(struct stui2 *stui2, stui2_element el, struct rect rect)
 	pel = fromshmptr(struct element, stui2->pd, el);
 	pel->pos = rect;
 
-	/* TODO: replace main_win */
-	element_resize(stui2->pd, pel,
-			fromshmptr(struct screen, stui2->pd, fromshmptr(struct window, stui2->pd, stui2->main_win)->ins.target_scr)->width,
-			fromshmptr(struct screen, stui2->pd, fromshmptr(struct window, stui2->pd, stui2->main_win)->ins.target_scr)->height);
+	element_resize(stui2->pd, pel);
+	dispatch_element_resize(&stui2->pd, el);
 }
 
 int
@@ -235,17 +233,17 @@ global_sigwinch_handler(int sig)
 		return;
 	}
 
-	resize_elements(current_stui2->pd, fromshmptr(struct window, current_stui2->pd, current_stui2->main_win));
+	resize_elements(&current_stui2->pd, fromshmptr(struct window, current_stui2->pd, current_stui2->main_win));
 }
 
 static void
-resize_elements(struct shm_allocator_pdata pd, struct window *win)
+resize_elements(struct shm_allocator_pdata *pd, struct window *win)
 {
-	r_resize_elements(pd, win->ins.root, fromshmptr(struct screen, pd, win->ins.target_scr)->width, fromshmptr(struct screen, pd, win->ins.target_scr)->height);
+	r_resize_elements(pd, win->ins.root);
 }
 
 static void
-r_resize_elements(struct shm_allocator_pdata pd, shmptr_of(struct z_index_node) node, scrcoord width, scrcoord height)
+r_resize_elements(struct shm_allocator_pdata *pd, shmptr_of(struct z_index_node) node)
 {
 	struct z_index_node *pnode;
 	struct element_list_node *plist;
@@ -255,16 +253,17 @@ r_resize_elements(struct shm_allocator_pdata pd, shmptr_of(struct z_index_node) 
 		return;
 	}
 
-	pnode = fromshmptr(struct z_index_node, pd, node);
-	r_resize_elements(pd, pnode->left, width, height);
-	r_resize_elements(pd, pnode->right, width, height);
+	pnode = fromshmptr(struct z_index_node, *pd, node);
+	r_resize_elements(pd, pnode->left);
+	r_resize_elements(pd, pnode->right);
 
-	plist = fromshmptr(struct element_list_node, pd, pnode->list.head);
+	plist = fromshmptr(struct element_list_node, *pd, pnode->list.head);
 	while(plist != SHMNULL) {
 		pelement = &plist->el;
-		element_resize(pd, pelement, width, height);
+		element_resize(*pd, pelement);
+		dispatch_element_resize(pd, toshmptr(*pd, pelement));
 
-		plist = fromshmptr(struct element_list_node, pd, plist->next);
+		plist = fromshmptr(struct element_list_node, *pd, plist->next);
 	}
 }
 

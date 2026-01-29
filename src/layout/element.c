@@ -9,8 +9,15 @@ static void z_index_rotate_r (struct shm_allocator_pdata *pd, shmptr_of(struct z
 static void z_index_rotate_l (struct shm_allocator_pdata *pd, shmptr_of(struct z_index_node) *node);
 
 void
-element_resize(struct shm_allocator_pdata pd, struct element *el, scrcoord parent_width, scrcoord parent_height)
+element_resize(struct shm_allocator_pdata pd, struct element *el)
 {
+	struct stui2_insertable *pins;
+	scrcoord parent_width, parent_height;
+
+	pins = fromshmptr(struct stui2_insertable, pd, el->parent_insertable);
+	parent_width = pins->width;
+	parent_height = pins->height;
+
 	el->scr_pos.x      = el->pos.x.fixed      + el->pos.x.resizable      * parent_width  / RESIZABLE_COORD_BASE;
 	el->scr_pos.y      = el->pos.y.fixed      + el->pos.y.resizable      * parent_height / RESIZABLE_COORD_BASE;
 	el->scr_pos.width  = el->pos.width.fixed  + el->pos.width.resizable  * parent_width  / RESIZABLE_COORD_BASE;

@@ -57,3 +57,12 @@ dispatch_element_draw(struct shm_allocator_pdata *pd, shmptr_of(struct element) 
 	DISPATCH(pel->data.type, element_draw_, pd, el);
 }
 
+int
+dispatch_element_resize(struct shm_allocator_pdata *pd, shmptr_of(struct element) el)
+{
+	struct element *pel;
+
+	pel = fromshmptr(struct element, *pd, el);
+	DISPATCH(pel->data.type, element_resize_, pd, el);
+}
+

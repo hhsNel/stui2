@@ -4,6 +4,7 @@ BUILDDIR = build
 TESTDIR = tests
 MAIN = $(SRCDIR)/stui2.c
 TARGET = libstui2.a
+HEADER = $(SRCDIR)/stui2.h
 
 SRC = $(foreach MODULE, $(MODULES), $(wildcard $(SRCDIR)/$(MODULE)/*.c))
 OBJ = $(SRC:$(SRCDIR)/%.c=$(BUILDDIR)/%.o)
@@ -24,7 +25,7 @@ $(BUILDDIR):
 test-%: $(TESTDIR)/%.o $(OBJ) $(TARGET)
 	$(CC) $(OBJ) $< $(LDFLAGS) -o $@
 
-$(MAINOBJ):
+$(MAINOBJ): $(BUILDDIR)
 	$(CC) $(CFLAGS) -c $(MAIN) -o $(MAINOBJ)
 
 $(TESTDIR)/%.o: $(TESTDIR)/%.c $(OBJ)
@@ -33,12 +34,22 @@ $(TESTDIR)/%.o: $(TESTDIR)/%.c $(OBJ)
 $(BUILDDIR)/%.o: $(SRCDIR)/%.c | $(BUILDDIR)
 	$(CC) $(CFLAGS) -c $< -o $@
 
-$(TARGET): $(MAINOBJ)
+$(TARGET): $(MAINOBJ) $(OBJ)
 	ar rcs $(TARGET) $(OBJ) $(MAINOBJ)
 
 clean:
 	rm -rf $(BUILDDIR)
 	rm -f $(TARGET) $(TESTS) $(TESTOBJ) $(MAINOBJ)
 
-.PHONY: all clean
+install: $(TARGET) $(HEADER)
+	cp $(TARGET) /usr/local/lib/
+	chmod 644 /usr/local/lib/$(TARGET)
+	cp $(HEADER) /usr/local/include/
+	chmod 644 /usr/local/include/$(shell basename $(HEADER))
+
+uninstall:
+	rm /usr/local/lib/$(TARGET)
+	rm /usr/local/include/$(shell basename $(HEADER))
+
+.PHONY: all clean install uninstall
 

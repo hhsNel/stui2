@@ -24,7 +24,7 @@ struct element {
 	element_z_index z_index;
 	shmptr_of(struct screen) render_output;
 	element_flags flags;
-	shmptr_of(struct window) parent_window;
+	shmptr_of(struct stui2_insertable) parent_insertable;
 
 	struct element_data data;
 };
@@ -51,9 +51,11 @@ struct z_index_node {
 struct stui2_insertable {
 	shmptr_of(struct z_index_node) root;
 	shmptr_of(struct screen) target_scr;
+	scrcoord x_offset, y_offset;
+	scrcoord width, height;
 };
 
-void element_resize(struct shm_allocator_pdata pd, struct element *el, scrcoord parent_width, scrcoord parent_height);
+void element_resize(struct shm_allocator_pdata pd, struct element *el);
 
 void init_element_list(struct element_list *list);
 void free_element_list(struct shm_allocator_pdata *pd, struct element_list list);

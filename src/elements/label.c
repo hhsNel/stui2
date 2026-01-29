@@ -91,3 +91,9 @@ line_end:
 	return STUI_OK;
 }
 
+int
+element_resize_label(struct shm_allocator_pdata *pd, shmptr_of(struct element) el)
+{
+	return STUI_OK;
+}
+
