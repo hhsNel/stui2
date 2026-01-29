@@ -53,6 +53,8 @@ struct stui2_insertable {
 	shmptr_of(struct screen) target_scr;
 };
 
+void element_resize(struct shm_allocator_pdata pd, struct element *el, scrcoord parent_width, scrcoord parent_height);
+
 void init_element_list(struct element_list *list);
 void free_element_list(struct shm_allocator_pdata *pd, struct element_list list);
 shmptr_of(struct element) element_list_insert(struct shm_allocator_pdata *pd, shmptr_of(struct element_list) list, struct element el);

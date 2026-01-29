@@ -26,9 +26,6 @@ free_window(struct shm_allocator_pdata *pd, struct window *win)
 int
 resize_window(struct shm_allocator_pdata *pd, shmptr_of(struct window) win, scrcoord new_width, scrcoord new_height)
 {
-	struct window *pwin;
-
-	pwin = fromshmptr(struct window, *pd, win);
-	return resize_screen(pd, toshmptr(*pd, &pwin->ins.target_scr), new_width, new_height);
+	return STUI_OK;
 }
 

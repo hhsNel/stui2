@@ -6,11 +6,15 @@
 #include "base/dblbuf.h"
 
 #include <stdlib.h>
+#include <signal.h>
+#include <termios.h>
+#include <sys/ioctl.h>
 
 struct stui2 {
 	struct shm_allocator_pdata pd;
 	int is_parent;
 	shmptr_of(struct window) main_win;
+	struct sigaction prev_sigact;
 	union {
 		struct {
 			shmptr_of(struct dblbuf) output_db;
@@ -23,7 +27,12 @@ struct stui2 {
 struct common_data {
 };
 
-static int r_render_z_index(struct shm_allocator_pdata *pd, shmptr_of(struct screen) scr, shmptr_of(struct z_index_node) node);
+static struct stui2 *current_stui2;
+
+static void global_sigwinch_handler(int sig);
+static void resize_elements(struct shm_allocator_pdata pd, struct window *win);
+static void r_resize_elements(struct shm_allocator_pdata pd, shmptr_of(struct z_index_node) node, scrcoord width, scrcoord height);
+static int  r_render_z_index(struct shm_allocator_pdata *pd, shmptr_of(struct screen) scr, shmptr_of(struct z_index_node) node);
 
 struct stui2 *
 init_stui2()
@@ -31,6 +40,9 @@ init_stui2()
 	struct stui2 *stui2;
 	struct window *pwin;
 	struct dblbuf *pdb;
+	struct sigaction sigact;
+	struct winsize ws;
+	scrcoord width, height;
 
 	stui2 = malloc(sizeof(struct stui2));
 	if(! stui2) {
@@ -43,13 +55,25 @@ init_stui2()
 
 	if(stui2->is_parent) {
 		stui2->main_win = shm_alloc(&stui2->pd, sizeof(struct window));
-		/*                                         TODO TODO */
-		if(init_window(&stui2->pd, stui2->main_win, 32, 32) != STUI_OK) {
+
+		sigemptyset(&sigact.sa_mask);
+		sigact.sa_flags = 0;
+		sigact.sa_handler = global_sigwinch_handler;
+		if(sigaction(SIGWINCH, &sigact, &stui2->prev_sigact) == -1) {
+			return NULL;
+		}
+
+		if (ioctl(STDIN_FILENO, TIOCGWINSZ, &ws) == -1) {
+			return NULL;
+		}
+		width = ws.ws_col;
+		height = ws.ws_row;
+
+		if(init_window(&stui2->pd, stui2->main_win, width, height) != STUI_OK) {
 			return NULL;
 		}
 		stui2->parent_data.output_db = shm_alloc(&stui2->pd, sizeof(struct dblbuf));
-		/*                                               TODO TODO */
-		if(init_dblbuf(&stui2->pd, stui2->parent_data.output_db, 32, 32) != STUI_OK) {
+		if(init_dblbuf(&stui2->pd, stui2->parent_data.output_db, width, height) != STUI_OK) {
 			return NULL;
 		}
 		pwin = fromshmptr(struct window, stui2->pd, stui2->main_win);
@@ -60,7 +84,7 @@ init_stui2()
 		exit(1);
 	}
 
-	return stui2;
+	current_stui2 = stui2; return stui2;
 }
 
 int
@@ -69,6 +93,10 @@ exit_stui2(struct stui2 *stui2)
 	struct window *pwin;
 
 	pwin = fromshmptr(struct window, stui2->pd, stui2->main_win);
+
+	sigaction(SIGWINCH, &current_stui2->prev_sigact, NULL);
+
+	current_stui2 = NULL;
 
 	free_window(&stui2->pd, pwin);
 	if(free_shm_allocator(stui2->pd, stui2->is_parent) != STUI_OK) {
@@ -162,6 +190,11 @@ stui2_set_position(struct stui2 *stui2, stui2_element el, struct rect rect)
 
 	pel = fromshmptr(struct element, stui2->pd, el);
 	pel->pos = rect;
+
+	/* TODO: replace main_win */
+	element_resize(stui2->pd, pel,
+			fromshmptr(struct screen, stui2->pd, fromshmptr(struct window, stui2->pd, stui2->main_win)->ins.target_scr)->width,
+			fromshmptr(struct screen, stui2->pd, fromshmptr(struct window, stui2->pd, stui2->main_win)->ins.target_scr)->height);
 }
 
 int
@@ -181,6 +214,58 @@ stui2_flush(struct stui2 *stui2)
 		return dump_dblbuf(&stui2->pd, stui2->parent_data.output_db, STDOUT_FILENO);
 	}
 	return STUI_OK;
+}
+
+static void
+global_sigwinch_handler(int sig)
+{
+	struct winsize ws;
+	scrcoord width, height;
+
+	if (ioctl(STDIN_FILENO, TIOCGWINSZ, &ws) == -1) {
+		return;
+	}
+	width = ws.ws_col;
+	height = ws.ws_row;
+
+	if(resize_window(&current_stui2->pd, current_stui2->main_win, width, height) != STUI_OK) {
+		return;
+	}
+	if(resize_dblbuf(&current_stui2->pd, current_stui2->parent_data.output_db, width, height) != STUI_OK) {
+		return;
+	}
+
+	resize_elements(current_stui2->pd, fromshmptr(struct window, current_stui2->pd, current_stui2->main_win));
+}
+
+static void
+resize_elements(struct shm_allocator_pdata pd, struct window *win)
+{
+	r_resize_elements(pd, win->ins.root, fromshmptr(struct screen, pd, win->ins.target_scr)->width, fromshmptr(struct screen, pd, win->ins.target_scr)->height);
+}
+
+static void
+r_resize_elements(struct shm_allocator_pdata pd, shmptr_of(struct z_index_node) node, scrcoord width, scrcoord height)
+{
+	struct z_index_node *pnode;
+	struct element_list_node *plist;
+	struct element *pelement;
+
+	if(node == SHMNULL) {
+		return;
+	}
+
+	pnode = fromshmptr(struct z_index_node, pd, node);
+	r_resize_elements(pd, pnode->left, width, height);
+	r_resize_elements(pd, pnode->right, width, height);
+
+	plist = fromshmptr(struct element_list_node, pd, pnode->list.head);
+	while(plist != SHMNULL) {
+		pelement = &plist->el;
+		element_resize(pd, pelement, width, height);
+
+		plist = fromshmptr(struct element_list_node, pd, plist->next);
+	}
 }
 
 static int

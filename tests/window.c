@@ -1,25 +1,12 @@
 #define STUI2_GLOBAL
 #include "stui2.h"
-#include "layout/window.h"
-#include <stdio.h>
-#include <string.h>
-#include <unistd.h>
-#include <sys/wait.h>
-
-void mklabel(struct shm_allocator_pdata *pd, shmptr_of(struct element) label, ...) {
-	va_list args;
-
-	va_start(args, label);
-	dispatch_init_element(pd, label, ELEMENT_LABEL, args);
-	va_end(args);
-}
 
 int main(int argc, char **argv) {
 	struct char_cell cc;
 	stui2_window win;
 	stui2_element label;
-	struct element *plabel;
 	stui2_insertable ins;
+	struct rect rect;
 
 	ginit_stui2();
 
@@ -30,11 +17,11 @@ int main(int argc, char **argv) {
 	cc.fg.type = cc.bg.type = CLR_DEFAULT;
 	label = gcreate_element(ins, 0, ELEMENT_LABEL, cc, "this is some text\nthat is too long\nfor this label");
 
-	plabel = fromshmptr(struct element, *(struct shm_allocator_pdata *)global_stui2, label);
-	plabel->scr_pos.x = 4;
-	plabel->scr_pos.y = 6;
-	plabel->scr_pos.width = 4;
-	plabel->scr_pos.height = 8;
+	rect.x      = (struct coord){.resizable=0,.fixed=4};
+	rect.y      = (struct coord){.resizable=0,.fixed=6};
+	rect.width  = (struct coord){.resizable=0,.fixed=4};
+	rect.height = (struct coord){.resizable=0,.fixed=8};
+	gset_position(label, rect);
 
 	grender(win);
 
