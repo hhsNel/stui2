@@ -11,24 +11,24 @@ void
 init_input_translator(struct input_translator *it)
 {
 	it->state = ITS_NORMAL;
-	init_input_ctl(&it->ic);
+}
+
+void
+input_translator_set_target(struct shm_allocator_pdata pd, shmptr_of(struct input_translator) it, shmptr_of(struct input_ctl) ic)
+{
+	struct input_translator *pit;
+
+	pit = fromshmptr(struct input_translator, pd, it);
+	pit->ic = ic;
 }
 
 void
 free_input_translator(struct shm_allocator_pdata *pd, shmptr_of(struct input_translator) it)
 {
-	struct input_translator *pit;
-
-	shm_access(pd);
-
-	pit = fromshmptr(struct input_translator, *pd, it);
-	free_input_ctl(pd, toshmptr(*pd, &pit->ic));
-
-	shm_leave(pd);
 }
 
 int
-run_input_translator(struct shm_allocator_pdata *pd, shmptr_of(struct input_translator) it, int fd)
+run_input_translator(struct shm_allocator_pdata *pd, shmptr_of(struct input_translator) it, int fd, int timeout)
 {
 	char c;
 	int ret;
@@ -39,7 +39,7 @@ run_input_translator(struct shm_allocator_pdata *pd, shmptr_of(struct input_tran
 	pfd.events = POLLIN;
 
 	pit = fromshmptr(struct input_translator, *pd, it);
-	while((ret = poll(&pfd, 1, 0)) > 0) {
+	while((ret = poll(&pfd, 1, timeout)) > 0) {
 		if(pfd.revents & POLLIN) {
 			if(read(fd, &c, 1) <= 0) {
 				return STUI_ERR;
@@ -58,7 +58,8 @@ run_input_translator(struct shm_allocator_pdata *pd, shmptr_of(struct input_tran
 				if(c == '[') {
 					pit->state = ITS_CSI;
 				} else {
-					if(add_input_ctl(pd, toshmptr(*pd, &pit->ic), (struct input_evt){.type=IT_KEY,.data={.key={.raw=127,.parsed=127,.mods=0}}}) != STUI_OK) return STUI_ERR;
+					if(add_input_ctl(pd, pit->ic, (struct input_evt){.type=IT_SPECIALKEY,.data={.special={.raw={127,'\0'},.parsed=SK_BACKSPACE,.mods=0}}}) != STUI_OK) return STUI_ERR;
+					pit->state = ITS_NORMAL;
 				}
 				break;
 			case ITS_CSI:
@@ -222,7 +223,7 @@ parse_char(struct shm_allocator_pdata *pd, shmptr_of(struct input_translator) it
 
 	pit = fromshmptr(struct input_translator, *pd, it);
 
-	if(add_input_ctl(pd, toshmptr(*pd, &pit->ic), lookup[(uint8_t)c]) != STUI_OK) {
+	if(add_input_ctl(pd, pit->ic, lookup[(uint8_t)c]) != STUI_OK) {
 		shm_leave(pd);
 		return STUI_ERR;
 	}

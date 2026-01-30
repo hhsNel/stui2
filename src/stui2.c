@@ -4,6 +4,10 @@
 #include "shm/allocator.h"
 #include "layout/window.h"
 #include "base/dblbuf.h"
+#include "base/inputctl.h"
+#include "base/inputtranslator.h"
+
+#include "elements/label.h"
 
 #include <stdlib.h>
 #include <signal.h>
@@ -18,6 +22,8 @@ struct stui2 {
 	union {
 		struct {
 			shmptr_of(struct dblbuf) output_db;
+			shmptr_of(struct input_translator) it;
+			struct termios term;
 		} parent_data;
 		struct {
 		} child_data;
@@ -43,6 +49,7 @@ init_stui2()
 	struct sigaction sigact;
 	struct winsize ws;
 	scrcoord width, height;
+	struct input_translator *pit;
 
 	stui2 = malloc(sizeof(struct stui2));
 	if(! stui2) {
@@ -79,6 +86,27 @@ init_stui2()
 		pwin = fromshmptr(struct window, stui2->pd, stui2->main_win);
 		pdb = fromshmptr(struct dblbuf, stui2->pd, stui2->parent_data.output_db);
 		pwin->ins.target_scr = toshmptr(stui2->pd, &pdb->cur_scr);
+
+		if(append_io_buffer(&stui2->pd, toshmptr(stui2->pd, &pdb->outbuf), "\e[H\e[J") != STUI_OK) {
+			return NULL;
+		}
+		pwin = fromshmptr(struct window, stui2->pd, stui2->main_win);
+		pdb = fromshmptr(struct dblbuf, stui2->pd, stui2->parent_data.output_db);
+		pwin->ins.target_scr = toshmptr(stui2->pd, &pdb->cur_scr);
+
+		stui2->parent_data.it = shm_alloc(&stui2->pd, sizeof(struct input_translator));
+		if(stui2->parent_data.it == SHMNULL) {
+			return NULL;
+		}
+		pwin = fromshmptr(struct window, stui2->pd, stui2->main_win);
+		pdb = fromshmptr(struct dblbuf, stui2->pd, stui2->parent_data.output_db);
+		pit = fromshmptr(struct input_translator, stui2->pd, stui2->parent_data.it);
+
+		init_input_translator(pit);
+
+		tcgetattr(STDIN_FILENO, &stui2->parent_data.term);
+		stui2->parent_data.term.c_lflag &= ~ECHO & ~ICANON;
+		tcsetattr(STDIN_FILENO, 0, &stui2->parent_data.term);
 	} else {
 		/* TODO */
 		exit(1);
@@ -99,9 +127,19 @@ exit_stui2(struct stui2 *stui2)
 	current_stui2 = NULL;
 
 	free_window(&stui2->pd, pwin);
+
+	if(stui2->is_parent) {
+		free_dblbuf(&stui2->pd, stui2->parent_data.output_db);
+		free_input_translator(&stui2->pd, stui2->parent_data.it);
+
+		stui2->parent_data.term.c_lflag |= ECHO | ICANON;
+		tcsetattr(STDIN_FILENO, 0, &stui2->parent_data.term);
+	}
+
 	if(free_shm_allocator(stui2->pd, stui2->is_parent) != STUI_OK) {
 		return STUI_ERR;
 	}
+
 
 	free(stui2);
 
@@ -214,6 +252,34 @@ stui2_flush(struct stui2 *stui2)
 	return STUI_OK;
 }
 
+int
+stui2_get_input(struct stui2 *stui2, stui2_window win, int timeout)
+{
+	struct window *pwin;
+
+	if(! stui2->is_parent) {
+		return STUI_OK;
+	}
+	pwin = fromshmptr(struct window, stui2->pd, win);
+
+	input_translator_set_target(stui2->pd, stui2->parent_data.it, toshmptr(stui2->pd, &pwin->input_list));
+
+	if(run_input_translator(&stui2->pd, stui2->parent_data.it, STDIN_FILENO, timeout) != STUI_OK) {
+		return STUI_ERR;
+	}
+
+	return STUI_OK;
+}
+
+struct input_evt
+stui2_next_event(struct stui2 *stui2, stui2_window win)
+{
+	struct window *pwin;
+
+	pwin = fromshmptr(struct window, stui2->pd, win);
+	return get_input_ctl(stui2->pd, &pwin->input_list);
+}
+
 static void
 global_sigwinch_handler(int sig)
 {
@@ -304,5 +370,31 @@ r_render_z_index(struct shm_allocator_pdata *pd, shmptr_of(struct screen) scr, s
 
 	shm_leave(pd);
 	return STUI_OK;
+}
+
+int
+stui2_label_set_style(struct stui2 *stui2, stui2_element label, struct char_cell cc)
+{
+	struct element *plabel;
+
+	plabel = fromshmptr(struct element, stui2->pd, label);
+	if(plabel->data.type != ELEMENT_LABEL) {
+		return STUI_ERR;
+	}
+
+	return label_set_style(stui2->pd, plabel, cc);
+}
+
+int
+stui2_label_set_string(struct stui2 *stui2, stui2_element label, char *string)
+{
+	struct element *plabel;
+
+	plabel = fromshmptr(struct element, stui2->pd, label);
+	if(plabel->data.type != ELEMENT_LABEL) {
+		return STUI_ERR;
+	}
+
+	return label_set_string(&stui2->pd, label, string);
 }
 

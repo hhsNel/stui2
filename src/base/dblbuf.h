@@ -15,6 +15,8 @@ struct dblbuf {
 	struct color last_bg;
 	scrcoord last_diff_line;
 	scrcoord last_diff_idx;
+	scrcoord last_move_line;
+	scrcoord last_move_idx;
 	int is_redrawing;
 };
 

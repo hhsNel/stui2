@@ -4,8 +4,13 @@
 #include "base/dblbuf.h"
 #include "base/iobuffer.h"
 
-#define ANSI_ESC		"\033["
-#define ANSI_GOTO(X,Y)	ANSI_ESC Y ";" X "H" /* 1-indexed */
+#define ANSI_ESC		    "\033["
+#define ANSI_GOTO(X,Y)	    ANSI_ESC Y ";" X "H" /* 1-indexed */
+#define ANSI_TOCOLUMN(C)    ANSI_ESC C	"G"
+#define ANSI_GODOWN(L)      ANSI_ESC L "B"
+#define ANSI_GOUP(L)        ANSI_ESC L "A"
+#define ANSI_GODOWNBEGIN(L) ANSI_ESC L "E"
+#define ANSI_GOUPBEGIN(L)   ANSI_ESC L "F"
 #define GET_CC(PD,SCR,X,Y) (fromshmptr(struct char_cell,PD,cell_at_screen(PD,SCR,X,Y)))
 
 static int  begin_color_escape(struct shm_allocator_pdata *pd, shmptr_of(struct dblbuf) db);
@@ -31,6 +36,7 @@ init_dblbuf(struct shm_allocator_pdata *pd, shmptr_of(struct dblbuf) db, scrcoor
 	pdb = fromshmptr(struct dblbuf, *pd, db);
 	pdb->is_in_color_escape = 0;
 	pdb->last_diff_line = pdb->last_diff_idx = -1;
+	pdb->last_move_line = pdb->last_move_idx = -1;
 	pdb->is_redrawing = 0;
 	init_io_buffer(&pdb->outbuf);
 	if(init_screen(pd, toshmptr(*pd, &pdb->cur_scr), w, h) != STUI_OK) return STUI_ERR;
@@ -145,11 +151,72 @@ end_color_escape(struct shm_allocator_pdata *pd, shmptr_of(struct dblbuf) db)
 }
 
 static int
-move_to(struct shm_allocator_pdata *pd, shmptr_of(struct io_buffer) buf, scrcoord x, scrcoord y)
+move_to(struct shm_allocator_pdata *pd, shmptr_of(struct dblbuf) db, scrcoord x, scrcoord y)
 {
+#define UPDATE_LAST \
+	pdb->last_move_line = y; \
+	pdb->last_move_idx = x;
+
+	struct dblbuf *pdb;
+
 	shm_access(pd);
 
-	if(printf_io_buffer(pd, buf, ANSI_GOTO("%u","%u"), (unsigned int)y+1, (unsigned int)x+1) != STUI_OK) {
+	pdb = fromshmptr(struct dblbuf, *pd, db);
+
+	if(pdb->last_move_line != -1 && pdb->last_move_idx != -1) {
+		if(pdb->last_move_line == y && pdb->last_move_idx + 1 == x) {
+			UPDATE_LAST;
+			shm_leave(pd);
+			return STUI_OK;
+		}
+
+		if(pdb->last_move_line == y) {
+			if(printf_io_buffer(pd, toshmptr(*pd, &pdb->outbuf), ANSI_TOCOLUMN("%u"), (unsigned int)x+1) != STUI_OK) {
+				shm_leave(pd);
+				return STUI_ERR;
+			}
+			UPDATE_LAST;
+			shm_leave(pd);
+			return STUI_OK;
+		}
+
+		if(pdb->last_move_idx == x) {
+			if(y > pdb->last_move_line) {
+				if(printf_io_buffer(pd, toshmptr(*pd, &pdb->outbuf), ANSI_GODOWN("%u"), (unsigned int)y-pdb->last_move_line) != STUI_OK) {
+					shm_leave(pd);
+					return STUI_ERR;
+				}
+			} else {
+				if(printf_io_buffer(pd, toshmptr(*pd, &pdb->outbuf), ANSI_GOUP("%u"), (unsigned int)pdb->last_move_line-y) != STUI_OK) {
+					shm_leave(pd);
+					return STUI_ERR;
+				}
+			}
+			UPDATE_LAST;
+			shm_leave(pd);
+			return STUI_OK;
+		}
+
+		if(x == 0) {
+			if(y > pdb->last_move_line) {
+				if(printf_io_buffer(pd, toshmptr(*pd, &pdb->outbuf), ANSI_GODOWNBEGIN("%u"), (unsigned int)y-pdb->last_move_line) != STUI_OK) {
+					shm_leave(pd);
+					return STUI_ERR;
+				}
+			} else {
+				if(printf_io_buffer(pd, toshmptr(*pd, &pdb->outbuf), ANSI_GOUPBEGIN("%u"), (unsigned int)pdb->last_move_line-y) != STUI_OK) {
+					shm_leave(pd);
+					return STUI_ERR;
+				}
+			}
+			UPDATE_LAST;
+			shm_leave(pd);
+			return STUI_OK;
+		}
+	}
+
+	UPDATE_LAST;
+	if(printf_io_buffer(pd, toshmptr(*pd, &pdb->outbuf), ANSI_GOTO("%u","%u"), (unsigned int)y+1, (unsigned int)x+1) != STUI_OK) {
 		shm_leave(pd);
 		return STUI_ERR;
 	}
@@ -338,8 +405,7 @@ redraw_cc(struct shm_allocator_pdata *pd, shmptr_of(struct dblbuf) db, scrcoord 
 
 	shm_access(pd);
 
-	pdb = fromshmptr(struct dblbuf, *pd, db);
-	if(move_to(pd, toshmptr(*pd, &pdb->outbuf), x, y) != STUI_OK) {
+	if(move_to(pd, db, x, y) != STUI_OK) {
 		shm_leave(pd);
 		return STUI_ERR;
 	}
@@ -415,6 +481,7 @@ redraw_dblbuf(struct shm_allocator_pdata *pd, shmptr_of(struct dblbuf) db)
 
 	pdb->is_redrawing = 0;
 	pdb->last_diff_line = pdb->last_diff_idx = -1;
+	pdb->last_move_line = pdb->last_move_idx = -1;
 
 	for(ln = 0; ln < pdb->cur_scr.height; ++ln) {
 		if(redraw_line(pd, db, ln) != STUI_OK) {

@@ -84,10 +84,11 @@ int main(int argc, char **argv) {
 	pit = fromshmptr(struct input_translator, pd, it);
  
  	init_input_translator(pit);
+	input_translator_set_target(pd, it, ic);
  	while(1) {
- 		run_input_translator(&pd, it, STDIN_FILENO);
+ 		run_input_translator(&pd, it, STDIN_FILENO, 100);
 		pit = fromshmptr(struct input_translator, pd, it);
- 		while((evt = get_input_ctl(pd, &pit->ic)).type != IT_NONE) {
+ 		while((evt = get_input_ctl(pd, fromshmptr(struct input_ctl, pd, pit->ic))).type != IT_NONE) {
  			if(evt.type == IT_KEY) {
  				printf("Key %c recognized as %c with flags %d\n", evt.data.key.raw,
  						evt.data.key.parsed, (int)evt.data.key.mods);
@@ -99,7 +100,6 @@ int main(int argc, char **argv) {
 				goto cleanup;
  			}
  		}
- 		sleep(1);
  	}
 cleanup:
  

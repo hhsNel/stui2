@@ -5,6 +5,8 @@ TESTDIR = tests
 MAIN = $(SRCDIR)/stui2.c
 TARGET = libstui2.a
 HEADER = $(SRCDIR)/stui2.h
+LIBDIR = /usr/local/lib
+INCLUDEDIR = /usr/local/include
 
 SRC = $(foreach MODULE, $(MODULES), $(wildcard $(SRCDIR)/$(MODULE)/*.c))
 OBJ = $(SRC:$(SRCDIR)/%.c=$(BUILDDIR)/%.o)
@@ -42,14 +44,14 @@ clean:
 	rm -f $(TARGET) $(TESTS) $(TESTOBJ) $(MAINOBJ)
 
 install: $(TARGET) $(HEADER)
-	cp $(TARGET) /usr/local/lib/
-	chmod 644 /usr/local/lib/$(TARGET)
-	cp $(HEADER) /usr/local/include/
-	chmod 644 /usr/local/include/$(shell basename $(HEADER))
+	cp $(TARGET) $(LIBDIR)/
+	chmod 644 $(LIBDIR)/$(shell basename $(TARGET))
+	cp $(HEADER) $(INCLUDEDIR)/
+	chmod 644 $(INCLUDEDIR)/$(shell basename $(HEADER))
 
 uninstall:
-	rm /usr/local/lib/$(TARGET)
-	rm /usr/local/include/$(shell basename $(HEADER))
+	rm $(LIBDIR)/$(shell basename $(TARGET))
+	rm $(INCLUDEDIR)/$(shell basename $(HEADER))
 
 .PHONY: all clean install uninstall
 

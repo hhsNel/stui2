@@ -18,8 +18,8 @@ element_resize(struct shm_allocator_pdata pd, struct element *el)
 	parent_width = pins->width;
 	parent_height = pins->height;
 
-	el->scr_pos.x      = el->pos.x.fixed      + el->pos.x.resizable      * parent_width  / RESIZABLE_COORD_BASE;
-	el->scr_pos.y      = el->pos.y.fixed      + el->pos.y.resizable      * parent_height / RESIZABLE_COORD_BASE;
+	el->scr_pos.x      = el->pos.x.fixed      + el->pos.x.resizable      * parent_width  / RESIZABLE_COORD_BASE + pins->x_offset;
+	el->scr_pos.y      = el->pos.y.fixed      + el->pos.y.resizable      * parent_height / RESIZABLE_COORD_BASE + pins->y_offset;
 	el->scr_pos.width  = el->pos.width.fixed  + el->pos.width.resizable  * parent_width  / RESIZABLE_COORD_BASE;
 	el->scr_pos.height = el->pos.height.fixed + el->pos.height.resizable * parent_height / RESIZABLE_COORD_BASE;
 }

@@ -73,14 +73,30 @@ element_draw_label(struct shm_allocator_pdata *pd, shmptr_of(struct element) el)
 	for(i = 0; i < pel->scr_pos.height; ++i) {
 		y = pel->scr_pos.y + i;
 		for(j = 0; j < pel->scr_pos.width; ++j, ++iter) {
+			x = pel->scr_pos.x + j;
 			switch(*iter) {
 			case '\0':
+				pdata->style.c = ' ';
+				for(; j < pel->scr_pos.width; ++j) {
+					x = pel->scr_pos.x + j;
+					if(set_cell_screen(*pd, *output, pdata->style, x, y) != STUI_OK) {
+						return STUI_ERR;
+					}
+				}
+				for(++i; i < pel->scr_pos.height; ++i) {
+					y = pel->scr_pos.y + i;
+					for(j = 0; j < pel->scr_pos.width; ++j, ++iter) {
+						x = pel->scr_pos.x + j;
+						if(set_cell_screen(*pd, *output, pdata->style, x, y) != STUI_OK) {
+							return STUI_ERR;
+						}
+					}
+				}
 				return STUI_OK;
 			case '\n':
 				++iter;
 				goto line_end;
 			}
-			x = pel->scr_pos.x + j;
 			pdata->style.c = *iter;
 			if(set_cell_screen(*pd, *output, pdata->style, x, y) != STUI_OK) {
 				return STUI_ERR;
@@ -94,6 +110,44 @@ line_end:
 int
 element_resize_label(struct shm_allocator_pdata *pd, shmptr_of(struct element) el)
 {
+	return STUI_OK;
+}
+
+int
+label_set_style(struct shm_allocator_pdata pd, struct element *el, struct char_cell cc)
+{
+	struct label_data *pdata;
+
+	pdata = fromshmptr(struct label_data, pd, el->data.type_data);
+	pdata->style = cc;
+
+	return STUI_OK;
+}
+
+int
+label_set_string(struct shm_allocator_pdata *pd, shmptr_of(struct element) el, char *string)
+{
+	struct element *pel;
+	struct label_data *pdata;
+	char *pstring;
+
+	pel = fromshmptr(struct element, *pd, el);
+	pdata = fromshmptr(struct label_data, *pd, pel->data.type_data);
+
+	if(pdata->string) {
+		shm_free(pd, pdata->string);
+	}
+
+	pdata->string = shm_alloc(pd, strlen(string) + 1);
+	pel = fromshmptr(struct element, *pd, el);
+	pdata = fromshmptr(struct label_data, *pd, pel->data.type_data);
+	if(pdata->string == SHMNULL) {
+		return STUI_ERR;
+	}
+
+	pstring = fromshmptr(char, *pd, pdata->string);
+	strcpy(pstring, string);
+
 	return STUI_OK;
 }
 

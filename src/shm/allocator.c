@@ -1,6 +1,7 @@
 #include "shm/allocator.h"
 
 #include <semaphore.h>
+#include <string.h>
 
 #define SHMA(PDATA) ((struct shm_allocator *)((PDATA).shm.addr))
 #define SHM_GRAN 4096
@@ -146,7 +147,7 @@ shm_realloc(struct shm_allocator_pdata *pdata, shmptr ptr, data_len size)
 	}
 	if(check_resizes(pdata) != STUI_OK) return SHMNULL;
 
-	container = pdata->shm.addr + ptr - sizeof(struct shm_chunk);
+	container = fromshmptr(struct shm_chunk, *pdata, ptr - sizeof(struct shm_chunk));
 	if(container->used + container->free >= size) {
 		container->free += container->used - size;
 		container->used = size;
@@ -157,6 +158,10 @@ shm_realloc(struct shm_allocator_pdata *pdata, shmptr ptr, data_len size)
 	if(new_ptr == SHMNULL) {
 		return SHMNULL;
 	}
+	container = fromshmptr(struct shm_chunk, *pdata, ptr - sizeof(struct shm_chunk));
+
+	memcpy(fromshmptr(char, *pdata, new_ptr), fromshmptr(char, *pdata, ptr), MIN(size, container->used));
+
 	shm_free(pdata, ptr);
 	return new_ptr;
 }

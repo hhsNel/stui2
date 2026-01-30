@@ -44,6 +44,40 @@ struct char_cell {
 	char c;
 };
 
+enum input_type {
+	IT_KEY,
+	IT_SPECIALKEY,
+	IT_NONE = -1,
+};
+typedef uint8_t input_modifiers;
+enum input_modifier {
+	IM_SHIFT = 1,
+	IM_CONTROL = 2,
+	IM_META = 4,
+	IM_SUPER = 8
+};
+enum special_key {
+	SK_BACKSPACE,
+	SK_TAB,
+	SK_RETURN,
+	SK_ESCAPE,
+};
+struct input_evt {
+	enum input_type type;
+	union {
+		struct {
+			char raw;
+			char parsed;
+			input_modifiers mods;
+		} key;
+		struct {
+			char raw[8];
+			enum special_key parsed;
+			input_modifiers mods;
+		} special;
+	} data;
+};
+
 typedef uint32_t stui2_element;
 typedef uint32_t stui2_window;
 typedef uint32_t stui2_insertable;
@@ -77,6 +111,11 @@ int              stui2_free_element      (struct stui2 *, stui2_element);
 void             stui2_set_position      (struct stui2 *, stui2_element, struct rect);
 int              stui2_render            (struct stui2 *, stui2_window);
 int              stui2_flush             (struct stui2 *);
+int              stui2_get_input         (struct stui2 *, stui2_window, int);
+struct input_evt stui2_next_event        (struct stui2 *, stui2_window);
+
+int  stui2_label_set_style(struct stui2 *, stui2_element, struct char_cell);
+int  stui2_label_set_string(struct stui2 *, stui2_element, char *);
 
 #ifdef STUI2_GLOBAL
 struct stui2 *global_stui2;
@@ -89,6 +128,10 @@ struct stui2 *global_stui2;
 #define       gset_position(EL,RECT)          (stui2_set_position(global_stui2,EL,RECT))
 #define       grender(WIN)                    (stui2_render(global_stui2,WIN))
 #define       gflush()                        (stui2_flush(global_stui2))
+#define       glabel_set_style(EL,CC)         (stui2_label_set_style(global_stui2,EL,CC)
+#define       glabel_set_string(EL,STR)       (stui2_label_set_string(global_stui2,EL,STR)
+#define       gget_input(WIN,TIME)            (stui2_get_input(global_stui2,WIN,TIME))
+#define       gnext_event(WIN)                (stui2_next_event(global_stui2,WIN))
 #endif
 
 #endif
