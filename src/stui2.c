@@ -8,8 +8,10 @@
 #include "base/inputtranslator.h"
 
 #include "elements/label.h"
+#include "elements/text.h"
 
 #include <stdlib.h>
+#include <stdio.h>
 #include <signal.h>
 #include <termios.h>
 #include <sys/ioctl.h>
@@ -34,6 +36,7 @@ struct common_data {
 };
 
 static struct stui2 *current_stui2;
+struct stui2 *global_stui2;
 
 static void global_sigwinch_handler(int sig);
 static void resize_elements(struct shm_allocator_pdata *pd, struct window *win);
@@ -87,7 +90,7 @@ init_stui2()
 		pdb = fromshmptr(struct dblbuf, stui2->pd, stui2->parent_data.output_db);
 		pwin->ins.target_scr = toshmptr(stui2->pd, &pdb->cur_scr);
 
-		if(append_io_buffer(&stui2->pd, toshmptr(stui2->pd, &pdb->outbuf), "\e[H\e[J") != STUI_OK) {
+		if(append_io_buffer(&stui2->pd, toshmptr(stui2->pd, &pdb->outbuf), "\e[2J") != STUI_OK) {
 			return NULL;
 		}
 		pwin = fromshmptr(struct window, stui2->pd, stui2->main_win);
@@ -280,6 +283,18 @@ stui2_next_event(struct stui2 *stui2, stui2_window win)
 	return get_input_ctl(stui2->pd, &pwin->input_list);
 }
 
+scrcoord
+stui2_insertable_width(struct stui2 *stui2, stui2_insertable ins)
+{
+	return fromshmptr(struct stui2_insertable, stui2->pd, ins)->width;
+}
+
+scrcoord
+stui2_insertable_height(struct stui2 *stui2, stui2_insertable ins)
+{
+	return fromshmptr(struct stui2_insertable, stui2->pd, ins)->height;
+}
+
 static void
 global_sigwinch_handler(int sig)
 {
@@ -396,5 +411,49 @@ stui2_label_set_string(struct stui2 *stui2, stui2_element label, char *string)
 	}
 
 	return label_set_string(&stui2->pd, label, string);
+}
+
+int
+stui2_text_append(struct stui2 *stui2, stui2_element text, struct char_cell cc, char *str)
+{
+	struct element *ptext;
+
+	ptext = fromshmptr(struct element, stui2->pd, text);
+	if(ptext->data.type != ELEMENT_TEXT) {
+		return STUI_ERR;
+	}
+	return text_append(&stui2->pd, text, cc, str);
+}
+
+int
+stui2_text_printf(struct stui2 *stui2, stui2_element text, struct char_cell cc, char *format, ...)
+{
+	va_list args, copy;
+	char *buff;
+	unsigned int len;
+
+	va_start(args, format);
+
+	va_copy(copy, args);
+	len = vsnprintf(NULL, 0, format, copy);
+	va_end(copy);
+
+	buff = malloc(len + 1);
+	if(! buff) {
+		return STUI_ERR;
+	}
+
+	va_copy(copy, args);
+	vsprintf(buff, format, copy);
+	va_end(copy);
+	buff[len] = '\0';
+
+	if(stui2_text_append(stui2, text, cc, buff) != STUI_OK) {
+		free(buff);
+		return STUI_ERR;
+	}
+
+	free(buff);
+	return STUI_OK;
 }
 

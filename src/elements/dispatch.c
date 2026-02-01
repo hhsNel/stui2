@@ -4,6 +4,7 @@
 #include <stdlib.h>
 
 #include "label.h"
+#include "text.h"
 
 #define _CONCAT2(A,B) A##B
 #define CONCAT2(A,B) _CONCAT2(A,B)
@@ -27,7 +28,7 @@
 /* main dispatch table that controls everything */
 #define TABLE(MACRO,...) \
 	MACRO(ELEMENT_LABEL,  label,  __VA_ARGS__) \
-	//MACRO(ELEMENT_CUSTOM, custom, __VA_ARGS__)
+	MACRO(ELEMENT_TEXT,   text,   __VA_ARGS__)
 
 int
 dispatch_init_element(struct shm_allocator_pdata *pd, shmptr_of(struct element) el, enum stui2_element_type type, va_list args)

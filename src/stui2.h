@@ -78,6 +78,11 @@ struct input_evt {
 	} data;
 };
 
+enum stui2_element_text_mode {
+	EL_TEXT_NOSCROLL = 0,
+	EL_TEXT_SCROLL = 1,
+};
+
 typedef uint32_t stui2_element;
 typedef uint32_t stui2_window;
 typedef uint32_t stui2_insertable;
@@ -89,6 +94,8 @@ typedef uint16_t element_z_index;
 enum stui2_element_type {
 	ELEMENT_LABEL,
 #define ELEMENT_LABEL ELEMENT_LABEL
+	ELEMENT_TEXT,
+#define ELEMENT_TEXT ELEMENT_TEXT
 };
 
 #define RESIZABLE_COORD_BASE 32
@@ -113,17 +120,21 @@ int              stui2_render            (struct stui2 *, stui2_window);
 int              stui2_flush             (struct stui2 *);
 int              stui2_get_input         (struct stui2 *, stui2_window, int);
 struct input_evt stui2_next_event        (struct stui2 *, stui2_window);
+scrcoord         stui2_insertable_width  (struct stui2 *, stui2_insertable);
+scrcoord         stui2_insertable_height (struct stui2 *, stui2_insertable);
 
 int  stui2_label_set_style(struct stui2 *, stui2_element, struct char_cell);
 int  stui2_label_set_string(struct stui2 *, stui2_element, char *);
+int  stui2_text_append(struct stui2 *, stui2_element, struct char_cell, char *);
+int  stui2_text_printf(struct stui2 *, stui2_element, struct char_cell, char *, ...);
 
 #ifdef STUI2_GLOBAL
-struct stui2 *global_stui2;
+extern struct stui2 *global_stui2;
 #define       ginit_stui2()                   (global_stui2 = init_stui2())
 #define       gexit_stui2()                   (exit_stui2(global_stui2))
 #define       gmain_window()                  (stui2_main_window(global_stui2))
 #define       gwin_get_insertable(WIN)        (stui2_win_get_insertable(global_stui2, WIN))
-#define       gcreate_element(INS,Z,TYPE,...) (stui2_create_element(global_stui2,INS,Z,TYPE,__VA_ARGS__))
+#define       gcreate_element(INS,Z,TYPE,...) (stui2_create_element(global_stui2,INS,Z,TYPE,##__VA_ARGS__))
 #define       gfree_element(EL)               (stui2_free_element(global_stui2, EL))
 #define       gset_position(EL,RECT)          (stui2_set_position(global_stui2,EL,RECT))
 #define       grender(WIN)                    (stui2_render(global_stui2,WIN))
@@ -132,6 +143,8 @@ struct stui2 *global_stui2;
 #define       glabel_set_string(EL,STR)       (stui2_label_set_string(global_stui2,EL,STR)
 #define       gget_input(WIN,TIME)            (stui2_get_input(global_stui2,WIN,TIME))
 #define       gnext_event(WIN)                (stui2_next_event(global_stui2,WIN))
+#define       ginsertable_width(INS)          (stui2_insertable_width(global_stui2,INS))
+#define       ginsertable_height(INS)         (stui2_insertable_height(global_stui2,INS))
 #endif
 
 #endif

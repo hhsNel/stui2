@@ -124,6 +124,10 @@ shm_free(struct shm_allocator_pdata *pdata, shmptr ptr)
 {
 	struct shm_chunk *container;
 
+	if(ptr == SHMNULL) {
+		return;
+	}
+
 	if(check_resizes(pdata) != STUI_OK) return;
 	container = pdata->shm.addr + ptr - sizeof(struct shm_chunk);
 	container->free += container->used;

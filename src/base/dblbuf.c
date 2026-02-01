@@ -180,7 +180,7 @@ move_to(struct shm_allocator_pdata *pd, shmptr_of(struct dblbuf) db, scrcoord x,
 			return STUI_OK;
 		}
 
-		if(pdb->last_move_idx == x) {
+		if(pdb->last_move_idx + 1 == x) {
 			if(y > pdb->last_move_line) {
 				if(printf_io_buffer(pd, toshmptr(*pd, &pdb->outbuf), ANSI_GODOWN("%u"), (unsigned int)y-pdb->last_move_line) != STUI_OK) {
 					shm_leave(pd);
@@ -247,11 +247,13 @@ output_fg(struct shm_allocator_pdata *pd, shmptr_of(struct dblbuf) db, struct ch
 				shm_leave(pd);
 				return STUI_ERR;
 			}
+			break;
 		} else if (cc.fg.data.usr >= 8 && cc.fg.data.usr < 16) {
 			if(printf_io_buffer(pd, toshmptr(*pd, &pdb->outbuf), "9%" PRIu8, cc.fg.data.usr - 8) != STUI_OK) {
 				shm_leave(pd);
 				return STUI_ERR;
 			}
+			break;
 		}
 
 		shm_leave(pd);
@@ -294,24 +296,26 @@ output_bg(struct shm_allocator_pdata *pd, shmptr_of(struct dblbuf) db, struct ch
 	begin_color_escape(pd, db);
 
 	pdb = fromshmptr(struct dblbuf, *pd, db);
-	switch(cc.fg.type) {
+	switch(cc.bg.type) {
 	case  CLR_USR:
-		if(cc.fg.data.usr < 7) {
-			if(printf_io_buffer(pd, toshmptr(*pd, &pdb->outbuf), "4%" PRIu8, cc.fg.data.usr) != STUI_OK) {
+		if(cc.bg.data.usr < 7) {
+			if(printf_io_buffer(pd, toshmptr(*pd, &pdb->outbuf), "4%" PRIu8, cc.bg.data.usr) != STUI_OK) {
 				shm_leave(pd);
 				return STUI_ERR;
 			}
-		} else if (cc.fg.data.usr >= 8 && cc.fg.data.usr < 16) {
-			if(printf_io_buffer(pd, toshmptr(*pd, &pdb->outbuf), "10%" PRIu8, cc.fg.data.usr - 8) != STUI_OK) {
+			break;
+		} else if (cc.bg.data.usr >= 8 && cc.bg.data.usr < 16) {
+			if(printf_io_buffer(pd, toshmptr(*pd, &pdb->outbuf), "10%" PRIu8, cc.bg.data.usr - 8) != STUI_OK) {
 				shm_leave(pd);
 				return STUI_ERR;
 			}
+			break;
 		}
 
 		shm_leave(pd);
 		return STUI_ERR;
 	case  CLR_256:
-		if(printf_io_buffer(pd, toshmptr(*pd, &pdb->outbuf), "48;5;%" PRIu8, cc.fg.data.c256) != STUI_OK) {
+		if(printf_io_buffer(pd, toshmptr(*pd, &pdb->outbuf), "48;5;%" PRIu8, cc.bg.data.c256) != STUI_OK) {
 			shm_leave(pd);
 			return STUI_ERR;
 		}
@@ -319,7 +323,7 @@ output_bg(struct shm_allocator_pdata *pd, shmptr_of(struct dblbuf) db, struct ch
 	case  CLR_RGB:
 		if(printf_io_buffer(pd, toshmptr(*pd, &pdb->outbuf),
 		              "48;2;%" PRIu8 ";%" PRIu8 ";%" PRIu8,
-		                      cc.fg.data.rgb.r, cc.fg.data.rgb.g, cc.fg.data.rgb.b) != STUI_OK) {
+		                      cc.bg.data.rgb.r, cc.bg.data.rgb.g, cc.bg.data.rgb.b) != STUI_OK) {
 			shm_leave(pd);
 			return STUI_ERR;
 		}
@@ -442,6 +446,8 @@ redraw_cc(struct shm_allocator_pdata *pd, shmptr_of(struct dblbuf) db, scrcoord 
 			shm_leave(pd);
 			return STUI_ERR;
 		}
+		pdb->last_fg = GET_CC(*pd,pdb->cur_scr,x,y)->fg;
+		pdb->last_bg = GET_CC(*pd,pdb->cur_scr,x,y)->bg;
 	}
 
 	shm_leave(pd);
