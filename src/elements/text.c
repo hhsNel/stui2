@@ -27,6 +27,7 @@ struct text_data {
 
 static int draw_text_chunk(struct shm_allocator_pdata *pd, shmptr_of(struct element) el, shmptr_of(struct text_chunk) tc, unsigned int line);
 static unsigned int next_break(struct shm_allocator_pdata pd, struct element *el, char *string);
+static void scroll(struct shm_allocator_pdata *pd, shmptr_of(struct element) el);
 static shmptr_of(struct text_chunk) new_chunk(struct shm_allocator_pdata *pd, shmptr_of(struct text_data) td);
 static int fill_chunk(struct shm_allocator_pdata *pd, shmptr_of(struct element) el, shmptr_of(struct text_chunk) chunk, struct char_cell cc, char **str);
 
@@ -157,9 +158,16 @@ text_append(struct shm_allocator_pdata *pd, shmptr_of(struct element) el, struct
 		pel = fromshmptr(struct element, *pd, el);
 		pdata = fromshmptr(struct text_data, *pd, pel->data.type_data);
 
-		if(pdata->cur_x == pel->scr_pos.width || *str != '\0') {
+		if(pdata->cur_x == pel->scr_pos.width || *str == '\n') {
 			pdata->cur_x = pdata->line_idx = 0;
-			++pdata->cur_y;
+			if(pdata->mode & EL_TEXT_SCROLL) {
+				if(pdata->cur_y + 1 < pel->scr_pos.height) {
+					++pdata->cur_y;
+				}
+			} else {
+				++pdata->cur_y;
+				pdata->cur_y %= pel->scr_pos.height;
+			}
 			if(*str == '\n') {
 				++str;
 			}
@@ -213,6 +221,36 @@ next_break(struct shm_allocator_pdata pd, struct element *el, char *string)
 	return i;
 }
 
+static void
+scroll(struct shm_allocator_pdata *pd, shmptr_of(struct element) el)
+{
+	struct element *pel;
+	struct text_data *pdata;
+	shmptr_of(struct text_chunk) *plines;
+	shmptr_of(struct text_chunk) cur, next;
+	struct text_chunk *pcur;
+
+	pel = fromshmptr(struct element, *pd, el);
+	pdata = fromshmptr(struct text_data, *pd, pel->data.type_data);
+	plines = fromshmptr(shmptr_of(struct text_chunk), *pd, pdata->lines);
+
+	cur = plines[0];
+	while(cur != SHMNULL) {
+		pcur = fromshmptr(struct text_chunk, *pd, cur);
+		next = pcur->next;
+
+		shm_free(pd, plines[0]);
+		pel = fromshmptr(struct element, *pd, el);
+		pdata = fromshmptr(struct text_data, *pd, pel->data.type_data);
+		plines = fromshmptr(shmptr_of(struct text_chunk), *pd, pdata->lines);
+
+		cur = next;
+	}
+
+	memmove(plines, plines + 1, (pdata->num_lines - 1) * sizeof(shmptr_of(struct text_chunk)));
+	plines[--pdata->num_lines] = SHMNULL;
+}
+
 static shmptr_of(struct text_chunk)
 new_chunk(struct shm_allocator_pdata *pd, shmptr_of(struct element) el)
 {
@@ -227,15 +265,12 @@ new_chunk(struct shm_allocator_pdata *pd, shmptr_of(struct element) el)
 	pdata = fromshmptr(struct text_data, *pd, pel->data.type_data);
 	plines = fromshmptr(shmptr_of(struct text_chunk), *pd, pdata->lines);
 
-	if(pdata->num_lines > pel->scr_pos.height) {
+	if(pdata->num_lines >= pel->scr_pos.height) {
 		if(pdata->mode & EL_TEXT_SCROLL) {
-			shm_free(pd, plines[0]);
+			scroll(pd, el);
 			pel = fromshmptr(struct element, *pd, el);
 			pdata = fromshmptr(struct text_data, *pd, pel->data.type_data);
 			plines = fromshmptr(shmptr_of(struct text_chunk), *pd, pdata->lines);
-
-			memmove(plines, plines + 1, (pdata->num_lines - 1) * sizeof(shmptr_of(struct text_chunk)));
-			plines[pdata->num_lines - 1] = SHMNULL;
 		} else {
 			pdata->cur_y = 0;
 		}
