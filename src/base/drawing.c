@@ -6,7 +6,7 @@ draw_line_screen(struct shm_allocator_pdata pd, struct screen scr, scrcoord x0, 
 {
 	scrcoord delta_x, delta_y;
 	scrcoord sign_x, sign_y;
-	scrcoord error;
+	scrcoord error, e2;
 
 	sign_x = (x1 > x0) ? 1 : -1;
 	sign_y = (y1 > y0) ? 1 : -1;
@@ -19,11 +19,12 @@ draw_line_screen(struct shm_allocator_pdata pd, struct screen scr, scrcoord x0, 
 	while(x0 != x1 || y0 != y1) {
 		if(set_cell_screen(pd, scr, fill, x0, y0) != STUI_OK) return STUI_ERR;
 
-		if(2 * error > -delta_y) {
+		e2 = 2 * error;
+		if(e2 > -delta_y) {
 			error -= delta_y;
 			x0 += sign_x;
 		}
-		if(2 * error < delta_x) {
+		if(e2 < delta_x) {
 			error += delta_x;
 			y0 += sign_y;
 		}

@@ -96,6 +96,8 @@ enum stui2_element_type {
 #define ELEMENT_LABEL ELEMENT_LABEL
 	ELEMENT_TEXT,
 #define ELEMENT_TEXT ELEMENT_TEXT
+	ELEMENT_DRAW,
+#define ELEMENT_DRAW ELEMENT_DRAW
 };
 
 #define RESIZABLE_COORD_BASE 32
@@ -127,6 +129,9 @@ int  stui2_label_set_style(struct stui2 *, stui2_element, struct char_cell);
 int  stui2_label_set_string(struct stui2 *, stui2_element, char *);
 int  stui2_text_append(struct stui2 *, stui2_element, struct char_cell, char *);
 int  stui2_text_printf(struct stui2 *, stui2_element, struct char_cell, char *, ...);
+void stui2_draw_set(struct stui2 *, stui2_element, scrcoord, scrcoord, struct char_cell);
+void stui2_draw_line(struct stui2 *, stui2_element, scrcoord, scrcoord, scrcoord, scrcoord, struct char_cell);
+void stui2_draw_rect(struct stui2 *, stui2_element, scrcoord, scrcoord, scrcoord, scrcoord, struct char_cell);
 
 #ifdef STUI2_GLOBAL
 extern struct stui2 *global_stui2;

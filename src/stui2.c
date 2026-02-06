@@ -9,6 +9,7 @@
 
 #include "elements/label.h"
 #include "elements/text.h"
+#include "elements/draw.h"
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -455,5 +456,41 @@ stui2_text_printf(struct stui2 *stui2, stui2_element text, struct char_cell cc, 
 
 	free(buff);
 	return STUI_OK;
+}
+
+void
+stui2_draw_set(struct stui2 * stui2, stui2_element el, scrcoord x, scrcoord y, struct char_cell cc)
+{
+	struct element *pdraw;
+
+	pdraw = fromshmptr(struct element, stui2->pd, el);
+	if(pdraw->data.type != ELEMENT_DRAW) {
+		return;
+	}
+	draw_setcc(stui2->pd, el, x, y, cc);
+}
+
+void
+stui2_draw_line(struct stui2 *stui2, stui2_element el, scrcoord x0, scrcoord y0, scrcoord x1, scrcoord y1, struct char_cell cc)
+{
+	struct element *pdraw;
+
+	pdraw = fromshmptr(struct element, stui2->pd, el);
+	if(pdraw->data.type != ELEMENT_DRAW) {
+		return;
+	}
+	draw_mkline(stui2->pd, el, x0, y0, x1, y1, cc);
+}
+
+void
+stui2_draw_rect(struct stui2 *stui2, stui2_element el, scrcoord x, scrcoord y, scrcoord width, scrcoord height, struct char_cell fill)
+{
+	struct element *pdraw;
+
+	pdraw = fromshmptr(struct element, stui2->pd, el);
+	if(pdraw->data.type != ELEMENT_DRAW) {
+		return;
+	}
+	draw_rect(stui2->pd, el, x, y, width, height, fill);
 }
 
