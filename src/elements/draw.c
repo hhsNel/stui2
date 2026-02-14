@@ -19,19 +19,21 @@ init_element_draw(struct shm_allocator_pdata *pd, shmptr_of(struct element) el, 
 	struct element *pel;
 	struct draw_data *pdata;
 	shmptr_of(struct char_cell) *pscreen;
+	shmptr_of(struct char_cell) row;
 	struct char_cell *prow;
 	scrcoord i, j;
 	struct char_cell background;
+	shmptr_of(struct draw_data) data;
 
 	background = va_arg(args, struct char_cell);
 	pel = fromshmptr(struct element, *pd, el);
 
-	/* TODO: pel can be invalidated by shm_alloc and crash, fix all instances @ next refactor */
-	pel->data.type_data = shm_alloc(pd, sizeof(struct draw_data));
-	pel = fromshmptr(struct element, *pd, el);
-	if(pel->data.type_data == SHMNULL) {
+	data = shm_alloc(pd, sizeof(struct draw_data));
+	if(data == SHMNULL) {
 		return STUI_ERR;
 	}
+	pel = fromshmptr(struct element, *pd, el);
+	pel->data.type_data = data;
 	pdata = fromshmptr(struct draw_data, *pd, pel->data.type_data);
 
 	pdata->background = background;
@@ -45,10 +47,11 @@ init_element_draw(struct shm_allocator_pdata *pd, shmptr_of(struct element) el, 
 	pscreen = fromshmptr(shmptr_of(struct char_cell), *pd, pdata->screen);
 
 	for(i = 0; i < pel->scr_pos.height; ++i) {
-		pscreen[i] = shm_alloc(pd, sizeof(struct char_cell) * pel->scr_pos.width);
+		row = shm_alloc(pd, sizeof(struct char_cell) * pel->scr_pos.width);
 		pel = fromshmptr(struct element, *pd, el);
 		pdata = fromshmptr(struct draw_data, *pd, pel->data.type_data);
 		pscreen = fromshmptr(shmptr_of(struct char_cell), *pd, pdata->screen);
+		pscreen[i] = row;
 		if(pscreen[i] == SHMNULL) {
 			return STUI_ERR;
 		}
@@ -70,20 +73,21 @@ free_element_draw(struct shm_allocator_pdata *pd, shmptr_of(struct element) el)
 {
 	struct element *pel;
 	struct draw_data *pdata;
-	shmptr_of(struct draw_data) *pscreen;
+	shmptr_of(shmptr_of(struct char_cell)) *pscreen;
 	scrcoord i;
 
 	pel = fromshmptr(struct element, *pd, el);
 	pdata = fromshmptr(struct draw_data, *pd, pel->data.type_data);
-	pscreen = fromshmptr(shmptr_of(struct draw_data), *pd, pdata->screen);
+	pscreen = fromshmptr(shmptr_of(struct char_cell), *pd, pdata->screen);
 
 	for(i = 0; i < pdata->height; ++i) {
 		shm_free(pd, pscreen[i]);
 		pel = fromshmptr(struct element, *pd, el);
 		pdata = fromshmptr(struct draw_data, *pd, pel->data.type_data);
-		pscreen = fromshmptr(shmptr_of(struct draw_data), *pd, pdata->screen);
+		pscreen = fromshmptr(shmptr_of(struct char_cell), *pd, pdata->screen);
 	}
 	shm_free(pd, pdata->screen);
+	pel = fromshmptr(struct element, *pd, el);
 	shm_free(pd, pel->data.type_data);
 }
 
@@ -99,7 +103,7 @@ element_draw_draw(struct shm_allocator_pdata *pd, shmptr_of(struct element) el)
 
 	pel = fromshmptr(struct element, *pd, el);
 	pdata = fromshmptr(struct draw_data, *pd, pel->data.type_data);
-	pscreen = fromshmptr(shmptr_of(struct draw_data), *pd, pdata->screen);
+	pscreen = fromshmptr(shmptr_of(struct char_cell), *pd, pdata->screen);
 	output = fromshmptr(struct screen, *pd, pel->render_output);
 
 	for(i = 0; i < pdata->height; ++i) {
@@ -122,17 +126,18 @@ element_resize_draw(struct shm_allocator_pdata *pd, shmptr_of(struct element) el
 	shmptr_of(struct char_cell) *pscreen;
 	shmptr_of(shmptr_of(struct char_cell)) screen;
 	shmptr_of(struct char_cell) row;
-	scrcoord i;
+	struct char_cell *prow;
+	scrcoord i, j;
 
 	pel = fromshmptr(struct element, *pd, el);
 	pdata = fromshmptr(struct draw_data, *pd, pel->data.type_data);
-	pscreen = fromshmptr(shmptr_of(struct draw_data), *pd, pdata->screen);
+	pscreen = fromshmptr(shmptr_of(struct char_cell), *pd, pdata->screen);
 
-	for(i = pel->scr_pos.height; i < pdata->height; ++i) {
+	for(i = pel->scr_pos.height; i < pdata->height; ++i) { /* free additional rows if shrinking */
 		shm_free(pd, pscreen[i]);
 		pel = fromshmptr(struct element, *pd, el);
 		pdata = fromshmptr(struct draw_data, *pd, pel->data.type_data);
-		pscreen = fromshmptr(shmptr_of(struct draw_data), *pd, pdata->screen);
+		pscreen = fromshmptr(shmptr_of(struct char_cell), *pd, pdata->screen);
 	}
 	screen = shm_realloc(pd, pdata->screen, pel->scr_pos.height * sizeof(shmptr_of(struct char_cell)));
 	if(screen == SHMNULL) {
@@ -141,20 +146,32 @@ element_resize_draw(struct shm_allocator_pdata *pd, shmptr_of(struct element) el
 	pel = fromshmptr(struct element, *pd, el);
 	pdata = fromshmptr(struct draw_data, *pd, pel->data.type_data);
 	pdata->screen = screen;
-	pscreen = fromshmptr(shmptr_of(struct draw_data), *pd, pdata->screen);
-	for(i = pdata->height; i < pel->scr_pos.height; ++i) {
+	pscreen = fromshmptr(shmptr_of(struct char_cell), *pd, pdata->screen);
+	for(i = pdata->height; i < pel->scr_pos.height; ++i) { /* set new rows to SHMNULL if expanding */
 		pscreen[i] = SHMNULL;
 	}
 
-	for(i = 0; i < pel->scr_pos.height; ++i) {
+	for(i = 0; i < pel->scr_pos.height; ++i) { /* realloc all rows to be the correct width */
 		row = shm_realloc(pd, pscreen[i], pel->scr_pos.width * sizeof(struct char_cell));
 		if(row == SHMNULL) {
 			return STUI_ERR;
 		}
 		pel = fromshmptr(struct element, *pd, el);
 		pdata = fromshmptr(struct draw_data, *pd, pel->data.type_data);
-		pscreen = fromshmptr(shmptr_of(struct draw_data), *pd, pdata->screen);
+		pscreen = fromshmptr(shmptr_of(struct char_cell), *pd, pdata->screen);
 		pscreen[i] = row;
+	}
+	for(i = 0; i < MIN(pdata->height, pel->scr_pos.height); ++i) { /* set all cells to the right to be the background */
+		prow = fromshmptr(struct char_cell, *pd, pscreen[i]);
+		for(j = pdata->width; j < pel->scr_pos.width; ++j) {
+			prow[j] = pdata->background;
+		}
+	}
+	for(i = pdata->height; i < pel->scr_pos.height; ++i) { /* set all new rows to be the background if expanding downwards */
+		prow = fromshmptr(struct char_cell, *pd, pscreen[i]);
+		for(j = 0; j < pel->scr_pos.width; ++j) {
+			prow[j] = pdata->background;
+		}
 	}
 
 	pdata->width = pel->scr_pos.width;
@@ -163,7 +180,7 @@ element_resize_draw(struct shm_allocator_pdata *pd, shmptr_of(struct element) el
 	return STUI_OK;
 }
 
-void
+int
 draw_setcc(struct shm_allocator_pdata pd, shmptr_of(struct element) el, scrcoord x, scrcoord y, struct char_cell cc)
 {
 	struct element *pel;
@@ -173,14 +190,20 @@ draw_setcc(struct shm_allocator_pdata pd, shmptr_of(struct element) el, scrcoord
 
 	pel = fromshmptr(struct element, pd, el);
 	pdata = fromshmptr(struct draw_data, pd, pel->data.type_data);
-	pscreen = fromshmptr(shmptr_of(struct draw_data), pd, pdata->screen);
+
+	if(x < 0 || y < 0 || x >= pdata->width || y >= pdata->height) {
+		return STUI_ERR;
+	}
+
+	pscreen = fromshmptr(shmptr_of(struct char_cell), pd, pdata->screen);
 	prow = fromshmptr(struct char_cell, pd, pscreen[y]);
 
-	/* TODO: validate */
 	prow[x] = cc;
+
+	return STUI_OK;
 }
 
-void
+int
 draw_mkline(struct shm_allocator_pdata pd, shmptr_of(struct element) el, scrcoord x0, scrcoord y0, scrcoord x1, scrcoord y1, struct char_cell fill)
 {
 	scrcoord delta_x, delta_y;
@@ -196,7 +219,9 @@ draw_mkline(struct shm_allocator_pdata pd, shmptr_of(struct element) el, scrcoor
 	error = delta_x - delta_y;
 
 	while(x0 != x1 || y0 != y1) {
-		draw_setcc(pd, el, x0, y0, fill);
+		if(draw_setcc(pd, el, x0, y0, fill) != STUI_OK) {
+			return STUI_ERR;
+		}
 
 		e2 = 2 * error;
 		if(e2 > -delta_y) {
@@ -208,18 +233,26 @@ draw_mkline(struct shm_allocator_pdata pd, shmptr_of(struct element) el, scrcoor
 			y0 += sign_y;
 		}
 	}
-	draw_setcc(pd, el, x0, y0, fill);
+	if(draw_setcc(pd, el, x0, y0, fill) != STUI_OK) {
+		return STUI_ERR;
+	}
+	
+	return STUI_OK;
 }
 
-void
+int
 draw_rect(struct shm_allocator_pdata pd, shmptr_of(struct element) el, scrcoord x, scrcoord y, scrcoord width, scrcoord height, struct char_cell fill)
 {
 	scrcoord i, j;
 
 	for(i = 0; i < width; ++i) {
 		for(j = 0; j < height; ++j) {
-			draw_setcc(pd, el, x + i, y + j, fill);
+			if(draw_setcc(pd, el, x + i, y + j, fill) != STUI_OK) {
+				return STUI_ERR;
+			}
 		}
 	}
+
+	return STUI_OK;
 }
 

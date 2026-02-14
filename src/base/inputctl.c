@@ -27,7 +27,11 @@ free_input_ctl(struct shm_allocator_pdata *pd, shmptr_of(struct input_ctl) ic)
 	pic = fromshmptr(struct input_ctl, *pd, ic);
 
 	if(pic->buf != SHMNULL) shm_free(pd, pic->buf);
-	init_input_ctl(pic);
+
+	pic->buf = SHMNULL;
+	pic->len = pic->cap = 0;
+	pic->begin = 0;
+	pic->end = -1;
 
 	shm_leave(pd);
 }
@@ -88,6 +92,7 @@ resize_input_ctl(struct shm_allocator_pdata *pd, shmptr_of(struct input_ctl) ic,
 
 	new_buf = shm_alloc(pd, new_size * sizeof(struct input_evt));
 	if(new_buf == SHMNULL) {
+		shm_leave(pd);
 		return STUI_ERR;
 	}
 

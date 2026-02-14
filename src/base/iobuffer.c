@@ -18,9 +18,20 @@ init_io_buffer(struct io_buffer *buf)
 }
 
 void
-free_io_buffer(struct shm_allocator_pdata *pd, struct io_buffer buf)
+free_io_buffer(struct shm_allocator_pdata *pd, shmptr_of(struct io_buffer) buf)
 {
-	shm_free(pd, buf.buf);
+	struct io_buffer *pbuf;
+
+	shm_access(pd);
+	pbuf = fromshmptr(struct io_buffer, *pd, buf);
+
+	shm_free(pd, pbuf->buf);
+	pbuf = fromshmptr(struct io_buffer, *pd, buf);
+
+	pbuf->buf = SHMNULL;
+	pbuf->len = pbuf->cap = 0;
+
+	shm_leave(pd);
 }
 
 int

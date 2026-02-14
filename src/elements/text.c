@@ -37,15 +37,16 @@ init_element_text(struct shm_allocator_pdata *pd, shmptr_of(struct element) el, 
 	enum stui2_element_text_mode mode;
 	struct element *pel;
 	struct text_data *pdata;
+	shmptr_of(struct text_data) data;
 
 	mode = va_arg(args, enum stui2_element_text_mode);
 
-	pel = fromshmptr(struct element, *pd, el);
-	pel->data.type_data = shm_alloc(pd, sizeof(struct text_data));
-	pel = fromshmptr(struct element, *pd, el);
-	if(pel->data.type_data == SHMNULL) {
+	data = shm_alloc(pd, sizeof(struct text_data));
+	if(data == SHMNULL) {
 		return STUI_ERR;
 	}
+	pel = fromshmptr(struct element, *pd, el);
+	pel->data.type_data = data;
 	pdata = fromshmptr(struct text_data, *pd, pel->data.type_data);
 
 	pdata->mode = mode;

@@ -20,16 +20,17 @@ init_element_label(struct shm_allocator_pdata *pd, shmptr_of(struct element) el,
 	char *pstring;
 	struct char_cell style;
 	char *string;
+	shmptr_of(struct label_data) data;
 
 	style = va_arg(args, struct char_cell);
 	string = va_arg(args, char *);
-	pel = fromshmptr(struct element, *pd, el);
 
-	pel->data.type_data = shm_alloc(pd, sizeof(struct label_data));
-	pel = fromshmptr(struct element, *pd, el);
-	if(pel->data.type_data == SHMNULL) {
+	data = shm_alloc(pd, sizeof(struct label_data));
+	if(data == SHMNULL) {
 		return STUI_ERR;
 	}
+	pel = fromshmptr(struct element, *pd, el);
+	pel->data.type_data = data;
 	pdata = fromshmptr(struct label_data, *pd, pel->data.type_data);
 	pdata->style = style;
 	pdata->string = shm_alloc(pd, strlen(string) + 1);

@@ -39,9 +39,17 @@ init_dblbuf(struct shm_allocator_pdata *pd, shmptr_of(struct dblbuf) db, scrcoor
 	pdb->last_move_line = pdb->last_move_idx = -1;
 	pdb->is_redrawing = 0;
 	init_io_buffer(&pdb->outbuf);
-	if(init_screen(pd, toshmptr(*pd, &pdb->cur_scr), w, h) != STUI_OK) return STUI_ERR;
+	if(init_screen(pd, toshmptr(*pd, &pdb->cur_scr), w, h) != STUI_OK) {
+		shm_leave(pd);
+		return STUI_ERR;
+	}
 	pdb = fromshmptr(struct dblbuf, *pd, db);
-	if(init_screen(pd, toshmptr(*pd, &pdb->prev_scr), w, h) != STUI_OK) return STUI_ERR;
+	if(init_screen(pd, toshmptr(*pd, &pdb->prev_scr), w, h) != STUI_OK) {
+		shm_leave(pd);
+		return STUI_ERR;
+	}
+
+	shm_leave(pd);
 
 	return STUI_OK;
 }
@@ -54,10 +62,18 @@ free_dblbuf(struct shm_allocator_pdata *pd, shmptr_of(struct dblbuf) db)
 	shm_access(pd);
 
 	pdb = fromshmptr(struct dblbuf, *pd, db);
-	free_io_buffer(pd, pdb->outbuf);
+	pdb->is_in_color_escape = 0;
+	pdb->last_diff_line = pdb->last_diff_idx = -1;
+	pdb->last_move_line = pdb->last_move_idx = -1;
+	pdb->is_redrawing = 0;
 
-	free_screen(pd, pdb->cur_scr);
-	free_screen(pd, pdb->prev_scr);
+	free_io_buffer(pd, toshmptr(*pd, &pdb->outbuf));
+	pdb = fromshmptr(struct dblbuf, *pd, db);
+
+	free_screen(pd, toshmptr(*pd, &pdb->cur_scr));
+	pdb = fromshmptr(struct dblbuf, *pd, db);
+	free_screen(pd, toshmptr(*pd, &pdb->prev_scr));
+	pdb = fromshmptr(struct dblbuf, *pd, db);
 
 	shm_leave(pd);
 }
@@ -65,8 +81,24 @@ free_dblbuf(struct shm_allocator_pdata *pd, shmptr_of(struct dblbuf) db)
 int
 resize_dblbuf(struct shm_allocator_pdata *pd, shmptr_of(struct dblbuf) db, scrcoord new_width, scrcoord new_height)
 {
+	struct dblbuf *pdb;
+
+	shm_access(pd);
+
+	pdb = fromshmptr(struct dblbuf, *pd, db);
+	if(pdb->cur_scr.width == new_width && pdb->cur_scr.height == new_height) {
+		shm_leave(pd);
+		return STUI_OK;
+	}
+
 	free_dblbuf(pd, db);
-	return init_dblbuf(pd, db, new_width, new_height);
+	if(init_dblbuf(pd, db, new_width, new_height) != STUI_OK) {
+		shm_leave(pd);
+		return STUI_ERR;
+	}
+
+	shm_leave(pd);
+	return STUI_OK;
 }
 
 int
@@ -175,6 +207,7 @@ move_to(struct shm_allocator_pdata *pd, shmptr_of(struct dblbuf) db, scrcoord x,
 				shm_leave(pd);
 				return STUI_ERR;
 			}
+			pdb = fromshmptr(struct dblbuf, *pd, db);
 			UPDATE_LAST;
 			shm_leave(pd);
 			return STUI_OK;
@@ -186,11 +219,13 @@ move_to(struct shm_allocator_pdata *pd, shmptr_of(struct dblbuf) db, scrcoord x,
 					shm_leave(pd);
 					return STUI_ERR;
 				}
+				pdb = fromshmptr(struct dblbuf, *pd, db);
 			} else {
 				if(printf_io_buffer(pd, toshmptr(*pd, &pdb->outbuf), ANSI_GOUP("%u"), (unsigned int)pdb->last_move_line-y) != STUI_OK) {
 					shm_leave(pd);
 					return STUI_ERR;
 				}
+				pdb = fromshmptr(struct dblbuf, *pd, db);
 			}
 			UPDATE_LAST;
 			shm_leave(pd);
@@ -203,11 +238,13 @@ move_to(struct shm_allocator_pdata *pd, shmptr_of(struct dblbuf) db, scrcoord x,
 					shm_leave(pd);
 					return STUI_ERR;
 				}
+				pdb = fromshmptr(struct dblbuf, *pd, db);
 			} else {
 				if(printf_io_buffer(pd, toshmptr(*pd, &pdb->outbuf), ANSI_GOUPBEGIN("%u"), (unsigned int)pdb->last_move_line-y) != STUI_OK) {
 					shm_leave(pd);
 					return STUI_ERR;
 				}
+				pdb = fromshmptr(struct dblbuf, *pd, db);
 			}
 			UPDATE_LAST;
 			shm_leave(pd);
@@ -220,6 +257,7 @@ move_to(struct shm_allocator_pdata *pd, shmptr_of(struct dblbuf) db, scrcoord x,
 		shm_leave(pd);
 		return STUI_ERR;
 	}
+	pdb = fromshmptr(struct dblbuf, *pd, db);
 
 	shm_leave(pd);
 	return STUI_OK;
@@ -247,12 +285,14 @@ output_fg(struct shm_allocator_pdata *pd, shmptr_of(struct dblbuf) db, struct ch
 				shm_leave(pd);
 				return STUI_ERR;
 			}
+			pdb = fromshmptr(struct dblbuf, *pd, db);
 			break;
 		} else if (cc.fg.data.usr >= 8 && cc.fg.data.usr < 16) {
 			if(printf_io_buffer(pd, toshmptr(*pd, &pdb->outbuf), "9%" PRIu8, cc.fg.data.usr - 8) != STUI_OK) {
 				shm_leave(pd);
 				return STUI_ERR;
 			}
+			pdb = fromshmptr(struct dblbuf, *pd, db);
 			break;
 		}
 
@@ -263,6 +303,7 @@ output_fg(struct shm_allocator_pdata *pd, shmptr_of(struct dblbuf) db, struct ch
 			shm_leave(pd);
 			return STUI_ERR;
 		}
+		pdb = fromshmptr(struct dblbuf, *pd, db);
 		break;
 	case  CLR_RGB:
 		if(printf_io_buffer(pd, toshmptr(*pd, &pdb->outbuf),
@@ -271,12 +312,14 @@ output_fg(struct shm_allocator_pdata *pd, shmptr_of(struct dblbuf) db, struct ch
 			shm_leave(pd);
 			return STUI_ERR;
 		}
+		pdb = fromshmptr(struct dblbuf, *pd, db);
 		break;
 	case  CLR_DEFAULT:
 		if(append_io_buffer(pd, toshmptr(*pd, &pdb->outbuf), "39") != STUI_OK) {
 			shm_leave(pd);
 			return STUI_ERR;
 		}
+		pdb = fromshmptr(struct dblbuf, *pd, db);
 		break;
 	default:
 		shm_leave(pd);
@@ -303,12 +346,14 @@ output_bg(struct shm_allocator_pdata *pd, shmptr_of(struct dblbuf) db, struct ch
 				shm_leave(pd);
 				return STUI_ERR;
 			}
+			pdb = fromshmptr(struct dblbuf, *pd, db);
 			break;
 		} else if (cc.bg.data.usr >= 8 && cc.bg.data.usr < 16) {
 			if(printf_io_buffer(pd, toshmptr(*pd, &pdb->outbuf), "10%" PRIu8, cc.bg.data.usr - 8) != STUI_OK) {
 				shm_leave(pd);
 				return STUI_ERR;
 			}
+			pdb = fromshmptr(struct dblbuf, *pd, db);
 			break;
 		}
 
@@ -319,6 +364,7 @@ output_bg(struct shm_allocator_pdata *pd, shmptr_of(struct dblbuf) db, struct ch
 			shm_leave(pd);
 			return STUI_ERR;
 		}
+		pdb = fromshmptr(struct dblbuf, *pd, db);
 		break;
 	case  CLR_RGB:
 		if(printf_io_buffer(pd, toshmptr(*pd, &pdb->outbuf),
@@ -327,12 +373,14 @@ output_bg(struct shm_allocator_pdata *pd, shmptr_of(struct dblbuf) db, struct ch
 			shm_leave(pd);
 			return STUI_ERR;
 		}
+		pdb = fromshmptr(struct dblbuf, *pd, db);
 		break;
 	case  CLR_DEFAULT:
 		if(append_io_buffer(pd, toshmptr(*pd, &pdb->outbuf), "49") != STUI_OK) {
 			shm_leave(pd);
 			return STUI_ERR;
 		}
+		pdb = fromshmptr(struct dblbuf, *pd, db);
 		break;
 	default:
 		shm_leave(pd);
@@ -440,6 +488,7 @@ redraw_cc(struct shm_allocator_pdata *pd, shmptr_of(struct dblbuf) db, scrcoord 
 			shm_leave(pd);
 			return STUI_ERR;
 		}
+		pdb = fromshmptr(struct dblbuf, *pd, db);
 	} else {
 		pdb->is_redrawing = 1;
 		if(output_cc(pd, db, *GET_CC(*pd,pdb->cur_scr,x,y)) != STUI_OK) {

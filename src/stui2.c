@@ -91,7 +91,8 @@ init_stui2()
 		pdb = fromshmptr(struct dblbuf, stui2->pd, stui2->parent_data.output_db);
 		pwin->ins.target_scr = toshmptr(stui2->pd, &pdb->cur_scr);
 
-		if(append_io_buffer(&stui2->pd, toshmptr(stui2->pd, &pdb->outbuf), "\e[2J") != STUI_OK) {
+		/*                                                                  save cursor position, save screen, hide cursor, clear */
+		if(append_io_buffer(&stui2->pd, toshmptr(stui2->pd, &pdb->outbuf), "\e7\e[?1049h\e[?25l\e[2J") != STUI_OK) {
 			return NULL;
 		}
 		pwin = fromshmptr(struct window, stui2->pd, stui2->main_win);
@@ -123,6 +124,7 @@ int
 exit_stui2(struct stui2 *stui2)
 {
 	struct window *pwin;
+	struct dblbuf *pdb;
 
 	pwin = fromshmptr(struct window, stui2->pd, stui2->main_win);
 
@@ -133,6 +135,16 @@ exit_stui2(struct stui2 *stui2)
 	free_window(&stui2->pd, pwin);
 
 	if(stui2->is_parent) {
+		pdb = fromshmptr(struct dblbuf, stui2->pd, stui2->parent_data.output_db);
+		/*                                                                  restore cursor position, restore screen, show cursor */
+		if(append_io_buffer(&stui2->pd, toshmptr(stui2->pd, &pdb->outbuf), "\e8\e[?1049l\e[?25h") != STUI_OK) {
+			return STUI_ERR;
+		}
+		pdb = fromshmptr(struct dblbuf, stui2->pd, stui2->parent_data.output_db);
+		if(dump_io_buffer(stui2->pd, &pdb->outbuf, STDOUT_FILENO) != STUI_OK) {
+			return STUI_ERR;
+		}
+
 		free_dblbuf(&stui2->pd, stui2->parent_data.output_db);
 		free_input_translator(&stui2->pd, stui2->parent_data.it);
 
@@ -308,14 +320,20 @@ global_sigwinch_handler(int sig)
 	width = ws.ws_col;
 	height = ws.ws_row;
 
+	shm_access(&current_stui2->pd);
+
 	if(resize_window(&current_stui2->pd, current_stui2->main_win, width, height) != STUI_OK) {
+		shm_leave(&current_stui2->pd);
 		return;
 	}
 	if(resize_dblbuf(&current_stui2->pd, current_stui2->parent_data.output_db, width, height) != STUI_OK) {
+		shm_leave(&current_stui2->pd);
 		return;
 	}
 
 	resize_elements(&current_stui2->pd, fromshmptr(struct window, current_stui2->pd, current_stui2->main_win));
+
+	shm_leave(&current_stui2->pd);
 }
 
 static void
@@ -328,6 +346,7 @@ static void
 r_resize_elements(struct shm_allocator_pdata *pd, shmptr_of(struct z_index_node) node)
 {
 	struct z_index_node *pnode;
+	shmptr_of(struct element_list_node) list;
 	struct element_list_node *plist;
 	struct element *pelement;
 
@@ -337,15 +356,19 @@ r_resize_elements(struct shm_allocator_pdata *pd, shmptr_of(struct z_index_node)
 
 	pnode = fromshmptr(struct z_index_node, *pd, node);
 	r_resize_elements(pd, pnode->left);
+	pnode = fromshmptr(struct z_index_node, *pd, node);
 	r_resize_elements(pd, pnode->right);
+	pnode = fromshmptr(struct z_index_node, *pd, node);
 
-	plist = fromshmptr(struct element_list_node, *pd, pnode->list.head);
-	while(plist != SHMNULL) {
+	list = pnode->list.head;
+	while(list != SHMNULL) {
+		plist = fromshmptr(struct element_list_node, *pd, list);
 		pelement = &plist->el;
 		element_resize(*pd, pelement);
 		dispatch_element_resize(pd, toshmptr(*pd, pelement));
+		plist = fromshmptr(struct element_list_node, *pd, list);
 
-		plist = fromshmptr(struct element_list_node, *pd, plist->next);
+		list = plist->next;
 	}
 }
 
@@ -458,39 +481,39 @@ stui2_text_printf(struct stui2 *stui2, stui2_element text, struct char_cell cc, 
 	return STUI_OK;
 }
 
-void
+int
 stui2_draw_set(struct stui2 * stui2, stui2_element el, scrcoord x, scrcoord y, struct char_cell cc)
 {
 	struct element *pdraw;
 
 	pdraw = fromshmptr(struct element, stui2->pd, el);
 	if(pdraw->data.type != ELEMENT_DRAW) {
-		return;
+		return STUI_ERR;
 	}
-	draw_setcc(stui2->pd, el, x, y, cc);
+	return draw_setcc(stui2->pd, el, x, y, cc);
 }
 
-void
+int
 stui2_draw_line(struct stui2 *stui2, stui2_element el, scrcoord x0, scrcoord y0, scrcoord x1, scrcoord y1, struct char_cell cc)
 {
 	struct element *pdraw;
 
 	pdraw = fromshmptr(struct element, stui2->pd, el);
 	if(pdraw->data.type != ELEMENT_DRAW) {
-		return;
+		return STUI_ERR;
 	}
-	draw_mkline(stui2->pd, el, x0, y0, x1, y1, cc);
+	return draw_mkline(stui2->pd, el, x0, y0, x1, y1, cc);
 }
 
-void
+int
 stui2_draw_rect(struct stui2 *stui2, stui2_element el, scrcoord x, scrcoord y, scrcoord width, scrcoord height, struct char_cell fill)
 {
 	struct element *pdraw;
 
 	pdraw = fromshmptr(struct element, stui2->pd, el);
 	if(pdraw->data.type != ELEMENT_DRAW) {
-		return;
+		return STUI_ERR;
 	}
-	draw_rect(stui2->pd, el, x, y, width, height, fill);
+	return draw_rect(stui2->pd, el, x, y, width, height, fill);
 }
 

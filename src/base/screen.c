@@ -6,6 +6,7 @@
 int
 init_screen(struct shm_allocator_pdata *pd, shmptr_of(struct screen) scr, scrcoord width, scrcoord height)
 {
+	static struct char_cell default_cell = (struct char_cell){.fg={.type=CLR_DEFAULT},.bg={.type=CLR_DEFAULT}};
 	scrcoord i, j;
 	struct char_cell *pccs;
 	struct screen *pscr;
@@ -18,18 +19,20 @@ init_screen(struct shm_allocator_pdata *pd, shmptr_of(struct screen) scr, scrcoo
 	pscr->height = height;
 
 	ccs = shm_alloc(pd, width * height * sizeof(struct char_cell));
-	pscr = fromshmptr(struct screen, *pd, scr);
 	if(ccs == SHMNULL) {
 		shm_leave(pd);
 		return STUI_ERR;
 	}
+	pscr = fromshmptr(struct screen, *pd, scr);
+
 	pscr->ccs = ccs;
 	pccs = fromshmptr(struct char_cell, *pd, ccs);
+
 	memset(pccs, 0, width * height * sizeof(struct char_cell));
 
 	for(i = 0; i < width; ++i) {
 		for(j = 0; j < height; ++j) {
-			set_cell_screen(*pd, *pscr, (struct char_cell){.fg={.type=CLR_DEFAULT},.bg={.type=CLR_DEFAULT}}, i, j);
+			set_cell_screen(*pd, *pscr, default_cell, i, j);
 		}
 	}
 
@@ -38,9 +41,20 @@ init_screen(struct shm_allocator_pdata *pd, shmptr_of(struct screen) scr, scrcoo
 }
 
 void
-free_screen(struct shm_allocator_pdata *pd, struct screen scr)
+free_screen(struct shm_allocator_pdata *pd, shmptr_of(struct screen) scr)
 {
-	if(scr.ccs != SHMNULL) shm_free(pd, scr.ccs);
+	struct screen *pscr;
+
+	shm_access(pd);
+	pscr = fromshmptr(struct screen, *pd, scr);
+
+	if(pscr->ccs != SHMNULL) shm_free(pd, pscr->ccs);
+	pscr = fromshmptr(struct screen, *pd, scr);
+
+	pscr->width = pscr->height = 0;
+	pscr->ccs = SHMNULL;
+
+	shm_leave(pd);
 }
 
 int
@@ -49,9 +63,14 @@ resize_screen(struct shm_allocator_pdata *pd, shmptr_of(struct screen) scr, scrc
 	struct screen *pscr;
 
 	shm_access(pd);
-
 	pscr = fromshmptr(struct screen, *pd, scr);
-	free_screen(pd, *pscr);
+
+	if(pscr->width == new_width && pscr->height == new_height) {
+		shm_leave(pd);
+		return STUI_OK;
+	}
+
+	free_screen(pd, scr);
 
 	if(init_screen(pd, scr, new_width, new_height) != STUI_OK) {
 		shm_leave(pd);
