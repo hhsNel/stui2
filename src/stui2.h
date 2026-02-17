@@ -101,7 +101,7 @@ enum stui2_element_type {
 };
 
 #define RESIZABLE_COORD_BASE 32
-typedef int16_t scrcoord;
+typedef int32_t scrcoord;
 struct coord {
 	scrcoord fixed;
 	uint8_t resizable;

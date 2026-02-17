@@ -1,5 +1,5 @@
 SRCDIR = src
-MODULES = base layout shm elements
+MODULES = base layout shm elements agfx
 BUILDDIR = build
 TESTDIR = tests
 MAIN = $(SRCDIR)/stui2.c
@@ -16,8 +16,8 @@ MAINOBJ = $(MAIN:$(SRCDIR)/%.c=$(BUILDDIR)/%.o)
 TESTS = $(TESTSRC:$(TESTDIR)/%.c=test-%)
 
 CC = gcc
-CFLAGS = -std=c99 -Wall -Wextra -Werror -Wshadow -Wno-missing-field-initializers -Wno-unused-parameter -fstack-protector-strong -fPIE -g -I$(SRCDIR) -D_GNU_SOURCE -D_POSIX_C_SOURCE
-LDFLAGS = -pie -g -L. -l$(TARGET:lib%.a=%)
+CFLAGS += -std=c99 -Wall -Wextra -Werror -Wshadow -Wno-missing-field-initializers -Wno-unused-parameter -fstack-protector-strong -fPIE -g -I$(SRCDIR) -D_GNU_SOURCE -D_POSIX_C_SOURCE
+LDFLAGS += -pie -g -L. -l$(TARGET:lib%.a=%)
 
 all: $(TESTS) $(TARGET)
 

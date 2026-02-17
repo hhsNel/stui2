@@ -110,7 +110,7 @@ init_stui2()
 		init_input_translator(pit);
 
 		tcgetattr(STDIN_FILENO, &stui2->parent_data.term);
-		stui2->parent_data.term.c_lflag &= ~ECHO & ~ICANON;
+		stui2->parent_data.term.c_lflag &= ~ECHO & ~ICANON & ~ISIG & ~IEXTEN & ~ICRNL;
 		tcsetattr(STDIN_FILENO, 0, &stui2->parent_data.term);
 	} else {
 		/* TODO */
@@ -148,7 +148,7 @@ exit_stui2(struct stui2 *stui2)
 		free_dblbuf(&stui2->pd, stui2->parent_data.output_db);
 		free_input_translator(&stui2->pd, stui2->parent_data.it);
 
-		stui2->parent_data.term.c_lflag |= ECHO | ICANON;
+		stui2->parent_data.term.c_lflag |= ECHO | ICANON | ISIG | IEXTEN | ICRNL;
 		tcsetattr(STDIN_FILENO, 0, &stui2->parent_data.term);
 	}
 
