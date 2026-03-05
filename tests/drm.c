@@ -1,37 +1,30 @@
 #include "agfx/agfxplane.h"
-#include "agfx/fbctl.h"
+#include "agfx/drmctl.h"
 #include "shm/allocator.h"
 
 #include <stdio.h>
 
 int main(int argc, char **argv) {
 	struct shm_allocator_pdata pd;
-	shmptr_of(struct fb_ctl) fc;
-	struct fb_ctl *pfc;
+	shmptr_of(struct drm_ctl) dc;
 	shmptr_of(struct agfx_plane) ap;
 	struct agfx_plane *pap;
 	unsigned int i, j, time;
 	struct agfx_pixel pix;
 
-	if(!is_fb_available()) {
-		puts("fb is not available\n");
+	if(!is_drm_available()) {
+		puts("drm is not available\n");
+		exit(1);
 	}
 
 	init_shm_allocator(&pd, NULL, 1, 0);
 
-	fc = shm_alloc(&pd, sizeof(struct fb_ctl));
+	dc = shm_alloc(&pd, sizeof(struct drm_ctl));
 
-	init_fb_ctl(&pd, fc);
-	pfc = fromshmptr(struct fb_ctl, pd, fc);
+	init_drm_ctl(&pd, dc);
 
-	puts("fb_ctl initialized, press any key to continue\n");
-	getchar();
-
-	ap = get_fb_agfx_plane(&pd, fc);
-	pfc = fromshmptr(struct fb_ctl, pd, fc);
+	ap = get_drm_agfx_plane(&pd, dc);
 	pap = fromshmptr(struct agfx_plane, pd, ap);
-
-	printf("pfc = %p\npap = %p\n", pfc, pap);
 
 	for(time = 0; time < 256; time += 4) {
 		for(j = 0; j < 256; ++j) {
@@ -42,8 +35,7 @@ int main(int argc, char **argv) {
 
 				set_px_agfx_plane(pd, *pap, pix, i, j);
 			}
-			flush_fb_ctl(&pd, fc);
-			pfc = fromshmptr(struct fb_ctl, pd, fc);
+			flush_drm_ctl(&pd, dc);
 			pap = fromshmptr(struct agfx_plane, pd, ap);
 		}
 	}

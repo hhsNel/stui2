@@ -27,6 +27,7 @@ is_fb_available()
 		if(close(fd) < 0) {
 			return 0;
 		}
+
 		return 1;
 	} else {
 		return 0;
@@ -74,7 +75,7 @@ init_fb_ctl(struct shm_allocator_pdata *pd, shmptr_of(struct fb_ctl) fc)
 	}
 	pfc = fromshmptr(struct fb_ctl, *pd, fc);
 
-	pfc->mapped_fb = mmap(0, pfc->finfo.smem_len, PROT_READ | PROT_WRITE, MAP_SHARED, pfc->fb_fd, 0);
+	pfc->mapped_fb = mmap(NULL, pfc->finfo.smem_len, PROT_READ | PROT_WRITE, MAP_SHARED, pfc->fb_fd, 0);
 	if(pfc->mapped_fb == MAP_FAILED) {
 		shm_leave(pd);
 		return STUI_ERR;
@@ -122,7 +123,7 @@ flush_fb_ctl(struct shm_allocator_pdata *pd, shmptr_of(struct fb_ctl) fc)
 static int
 check_device(char *name, int *fd, struct fb_var_screeninfo *vinfo, struct fb_fix_screeninfo *finfo)
 {
-	*fd = open(name, O_RDWR);
+	*fd = open(name, O_RDWR | O_CLOEXEC);
 
 	if(*fd < 0) {
 		return 0;

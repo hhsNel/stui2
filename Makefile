@@ -41,7 +41,7 @@ $(TARGET): $(MAINOBJ) $(OBJ)
 
 clean:
 	rm -rf $(BUILDDIR)
-	rm -f $(TARGET) $(TESTS) $(TESTOBJ) $(MAINOBJ)
+	rm -f $(TARGET) $(TESTS) $(TESTOBJ)
 
 install: $(TARGET) $(HEADER)
 	cp $(TARGET) $(LIBDIR)/
