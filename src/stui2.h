@@ -111,8 +111,26 @@ struct rect {
 	struct coord width, height;
 };
 
+typedef uint64_t stui2_info;
+enum stui2_sub_info {
+	INFO_HAS_AGFX      = 1,
+	INFO_USES_AGFX     = 2,
+
+	INFO_HAS_AGFX_FB   = 4,
+	INFO_USES_AGFX_FB  = 8,
+	INFO_HAS_AGFX_DRI  = 16,
+	INFO_USES_AGFX_DRI = 32,
+};
+
 struct stui2     *init_stui2             ();
 int              exit_stui2              (struct stui2 *);
+int              stui2_is_parent         (struct stui2 *);
+stui2_info       stui2_get_info          (struct stui2 *);
+char const       *stui2_cur_comp_date    ();
+char const       *stui2_cur_comp_time    ();
+void             stui2_parent_comp_date  (struct stui2 *, char *, unsigned int);
+void             stui2_parent_comp_time  (struct stui2 *, char *, unsigned int);
+void             stui2_get_shm_id        (struct stui2 *, char *, unsigned int);
 stui2_window     stui2_main_window       (struct stui2 *);
 stui2_insertable stui2_win_get_insertable(struct stui2 *, stui2_window);
 stui2_element    stui2_create_element    (struct stui2 *, stui2_insertable, element_z_index, enum stui2_element_type, ...);
@@ -137,6 +155,11 @@ int stui2_draw_rect(struct stui2 *, stui2_element, scrcoord, scrcoord, scrcoord,
 extern struct stui2 *global_stui2;
 #define       ginit_stui2()                   (global_stui2 = init_stui2())
 #define       gexit_stui2()                   (exit_stui2(global_stui2))
+#define       gis_parent()                    (stui2_is_parent(global_stui2))
+#define       gget_info()                     (stui2_get_info(global_stui2))
+#define       gparent_comp_date(BUF,LEN)      (stui2_parent_comp_date(global_stui2, BUF, LEN))
+#define       gparent_comp_time(BUF,LEN)      (stui2_parent_comp_time(global_stui2, BUF, LEN))
+#define       gget_shm_id(BUF,LEN)            (stui2_get_shm_id(global_stui2, BUF, LEN))
 #define       gmain_window()                  (stui2_main_window(global_stui2))
 #define       gwin_get_insertable(WIN)        (stui2_win_get_insertable(global_stui2, WIN))
 #define       gcreate_element(INS,Z,TYPE,...) (stui2_create_element(global_stui2,INS,Z,TYPE,##__VA_ARGS__))

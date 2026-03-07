@@ -16,6 +16,7 @@
 #include <signal.h>
 #include <termios.h>
 #include <sys/ioctl.h>
+#include <string.h>
 
 struct stui2 {
 	struct shm_allocator_pdata pd;
@@ -34,6 +35,8 @@ struct stui2 {
 };
 
 struct common_data {
+	shmptr_of(char) parent_compilation_date;
+	shmptr_of(char) parent_compilation_time;
 };
 
 static struct stui2 *current_stui2;
@@ -54,6 +57,9 @@ init_stui2()
 	struct winsize ws;
 	scrcoord width, height;
 	struct input_translator *pit;
+	struct common_data *pcommon;
+	shmptr_of(char) p_comp_date;
+	shmptr_of(char) p_comp_time;
 
 	stui2 = malloc(sizeof(struct stui2));
 	if(! stui2) {
@@ -112,6 +118,20 @@ init_stui2()
 		tcgetattr(STDIN_FILENO, &stui2->parent_data.term);
 		stui2->parent_data.term.c_lflag &= ~ECHO & ~ICANON & ~ISIG & ~IEXTEN & ~ICRNL;
 		tcsetattr(STDIN_FILENO, 0, &stui2->parent_data.term);
+
+		p_comp_date = shm_alloc(&stui2->pd, sizeof(__DATE__));
+		if(p_comp_date == SHMNULL) {
+			return NULL;
+		}
+		p_comp_time = shm_alloc(&stui2->pd, sizeof(__TIME__));
+		if(p_comp_time == SHMNULL) {
+			return NULL;
+		}
+		pcommon = fromshmptr(struct common_data, stui2->pd, shm_first_used(&stui2->pd));
+		pcommon->parent_compilation_date =  p_comp_date;
+		pcommon->parent_compilation_time =  p_comp_time;
+		strcpy(fromshmptr(char, stui2->pd, pcommon->parent_compilation_date), __DATE__);
+		strcpy(fromshmptr(char, stui2->pd, pcommon->parent_compilation_time), __TIME__);
 	} else {
 		/* TODO */
 		exit(1);
@@ -160,6 +180,61 @@ exit_stui2(struct stui2 *stui2)
 	free(stui2);
 
 	return STUI_OK;
+}
+
+int
+stui2_is_parent(struct stui2 *stui2)
+{
+	return stui2->is_parent;
+}
+
+stui2_info
+stui2_get_info(struct stui2 *stui2)
+{
+	stui2_info ret;
+
+	ret = 0;
+
+	ret &= ~(INFO_HAS_AGFX | INFO_USES_AGFX);
+	ret &= ~(INFO_HAS_AGFX_FB | INFO_USES_AGFX_FB);
+	ret &= ~(INFO_HAS_AGFX_DRI | INFO_USES_AGFX_DRI);
+
+	return ret;
+}
+
+char const *
+stui2_cur_comp_date()
+{
+	return __DATE__;
+}
+
+char const *
+stui2_cur_comp_time()
+{
+	return __TIME__;
+}
+
+void
+stui2_parent_comp_date(struct stui2 *stui2, char *out, unsigned int len)
+{
+	struct common_data *pcommon;
+
+	pcommon = fromshmptr(struct common_data, stui2->pd, shm_first_used(&stui2->pd));
+	strncpy(out, fromshmptr(char, stui2->pd, pcommon->parent_compilation_date), len);
+}
+
+void
+stui2_parent_comp_time(struct stui2 *stui2, char *out, unsigned int len)
+{
+	struct common_data *pcommon;
+
+	pcommon = fromshmptr(struct common_data, stui2->pd, shm_first_used(&stui2->pd));
+	strncpy(out, fromshmptr(char, stui2->pd, pcommon->parent_compilation_time), len);
+}
+
+void stui2_get_shm_id(struct stui2 *stui2, char *out, unsigned int len)
+{
+	strncpy(out, stui2->pd.shm.shm_name, len);
 }
 
 stui2_window
