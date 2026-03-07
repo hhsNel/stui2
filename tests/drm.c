@@ -3,6 +3,7 @@
 #include "shm/allocator.h"
 
 #include <stdio.h>
+#include <stdlib.h>
 
 int main(int argc, char **argv) {
 	struct shm_allocator_pdata pd;
@@ -40,6 +41,7 @@ int main(int argc, char **argv) {
 		}
 	}
 
+	free_drm_ctl(&pd, dc);
 	free_shm_allocator(pd, 1);
 }
 

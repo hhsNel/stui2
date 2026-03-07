@@ -2,17 +2,19 @@
 
 #include <string.h>
 #include <stdlib.h>
-#include <string.h>
 
 static int get_mode_resources(int fd, struct drm_mode_card_res *res, uint32_t **connectors);
 static int find_connector(int fd, struct drm_mode_card_res *res, struct drm_mode_modeinfo *mode, uint32_t *encoder_id, uint32_t *connector_id);
 static int get_encoder(int fd, uint32_t encoder_id, struct drm_mode_get_encoder *enc);
 static int create_dumb_buffer(int fd, uint32_t width, uint32_t height, uint32_t *handle, uint32_t *line_length, uint64_t *size, uint32_t *fb_id, char **map, uint64_t *offset);
+static int save_crtc(int fd, uint32_t crtc_id, struct drm_mode_crtc *prev_crtc);
+static int reset_crtc(int fd, struct drm_mode_crtc prev_crtc, uint32_t prev_connector_id);
 static int assign_crtc(int fd, uint32_t crtc_id, uint32_t fb_id, uint32_t connector_id, struct drm_mode_modeinfo mode, struct drm_mode_crtc *crtc);
 
 static char *devices[] = {
 	"/dev/dri/card1",
 	"/dev/dri/card0",
+	"/dev/dri/card2",
 	NULL,
 };
 static int check_device(char *name, int *fd, struct drm_mode_card_res *res, struct drm_mode_modeinfo *mode, uint32_t *encoder_id, uint32_t *connector_id);
@@ -51,6 +53,7 @@ init_drm_ctl(struct shm_allocator_pdata *pd, shmptr_of(struct drm_ctl) dc)
 
 	shm_access(pd);
 	pdc = fromshmptr(struct drm_ctl, *pd, dc);
+	pdc->fd = -1;
 
 	if(! check_devices(devices, &pdc->fd, &pdc->res, &pdc->mode, &encoder_id, &connector_id)) {
 		shm_leave(pd);
@@ -61,12 +64,21 @@ init_drm_ctl(struct shm_allocator_pdata *pd, shmptr_of(struct drm_ctl) dc)
 		goto cleanup_close;
 	}
 
-	if(! create_dumb_buffer(pdc->fd, pdc->mode.hdisplay, pdc->mode.vdisplay, &pdc->handle, &pdc->line_length, &pdc->size, &pdc->fb_id, &pdc->mapped_fb, &pdc->mapped_offset)) {
+	pdc->prev_connector_id = connector_id;
+	if(! save_crtc(pdc->fd, enc.crtc_id, &pdc->prev_crtc)) {
 		goto cleanup_close;
 	}
 
-	if(! assign_crtc(pdc->fd, enc.crtc_id, pdc->fb_id, connector_id, pdc->mode, &pdc->crtc)) {
+	if(! create_dumb_buffer(pdc->fd, pdc->mode.hdisplay, pdc->mode.vdisplay, &pdc->handle, &pdc->line_length, &pdc->size, &pdc->fb_id, &pdc->mapped_fb, &pdc->mapped_offset)) {
 		goto cleanup_destroy_dumb;
+	}
+
+	if(ioctl(pdc->fd, DRM_IOCTL_SET_MASTER, 0) < 0) {
+		goto cleanup_destroy_dumb;
+	}
+
+	if(! assign_crtc(pdc->fd, enc.crtc_id, pdc->fb_id, connector_id, pdc->mode, &pdc->crtc)) {
+		goto cleanup_drop_master;
 	}
 
 	r.bits      = 8;
@@ -88,14 +100,17 @@ init_drm_ctl(struct shm_allocator_pdata *pd, shmptr_of(struct drm_ctl) dc)
 					pdc->mode.hdisplay,
 					pdc->mode.vdisplay,
 					def) != STUI_OK) {
-		/* TODO: cleanup */
-		return STUI_ERR;
+		goto cleanup_drop_master;
 	}
 	pdc = fromshmptr(struct drm_ctl, *pd, dc);
 
 	shm_leave(pd);
 	return STUI_OK;
 
+cleanup_drop_master:
+	if(ioctl(pdc->fd, DRM_IOCTL_DROP_MASTER, 0) < 0) {
+		return STUI_ERR;
+	}
 cleanup_destroy_dumb:
 	if(ioctl(pdc->fd, DRM_IOCTL_MODE_RMFB, &pdc->fb_id) < 0) {
 		return STUI_ERR;
@@ -137,10 +152,15 @@ free_drm_ctl(struct shm_allocator_pdata *pd, shmptr_of(struct drm_ctl) dc)
 		return;
 	}
 
-//	if(ioctl(pdc->fd, DRM_IOCTL_DROP_MASTER, 0) < 0) {
-//		shm_leave(pd);
-//		return;
-//	}
+	if(! reset_crtc(pdc->fd, pdc->prev_crtc, pdc->prev_connector_id)) {
+		shm_leave(pd);
+		return;
+	}
+
+	if(ioctl(pdc->fd, DRM_IOCTL_DROP_MASTER, 0) < 0) {
+		shm_leave(pd);
+		return;
+	}
 
 	if(close(pdc->fd) < 0) {
 		shm_leave(pd);
@@ -354,6 +374,7 @@ create_dumb_buffer(int fd, uint32_t width, uint32_t height, uint32_t *handle, ui
 	struct drm_mode_create_dumb creq;
 	struct drm_mode_fb_cmd fbreq;
 	struct drm_mode_map_dumb mreq;
+	struct drm_mode_destroy_dumb dreq;
 
 	memset(&creq, 0, sizeof(struct drm_mode_create_dumb));
 	creq.width  = width;
@@ -379,8 +400,7 @@ create_dumb_buffer(int fd, uint32_t width, uint32_t height, uint32_t *handle, ui
 	fbreq.handle = creq.handle;
 
 	if(ioctl(fd, DRM_IOCTL_MODE_ADDFB, &fbreq) < 0) {
-		/* TODO: Destroy dumb */
-		return 0;
+		goto cleanup_destroy;
 	}
 
 	*fb_id = fbreq.fb_id;
@@ -389,14 +409,49 @@ create_dumb_buffer(int fd, uint32_t width, uint32_t height, uint32_t *handle, ui
 	mreq.handle  = creq.handle;
 
 	if(ioctl(fd, DRM_IOCTL_MODE_MAP_DUMB, &mreq) < 0) {
-		/* TODO: Destroy dumb */
-		return 0;
+		goto cleanup_rmfb;
 	}
 
 	*offset = mreq.offset;
 	*map    = mmap(NULL, creq.size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, mreq.offset);
 	if(*map == MAP_FAILED) {
-		/* TODO: Destroy dumb */
+		goto cleanup_rmfb;
+	}
+
+	return 1;
+
+cleanup_rmfb:
+	if(ioctl(fd, DRM_IOCTL_MODE_RMFB, &fbreq.fb_id) < 0) {
+		return 0;
+	}
+cleanup_destroy:
+	memset(&dreq, 0, sizeof(struct drm_mode_destroy_dumb));
+	dreq.handle = creq.handle;
+	if(ioctl(fd, DRM_IOCTL_MODE_DESTROY_DUMB, &dreq) < 0) {
+		return 0;
+	}
+	return 0;
+}
+
+static int
+save_crtc(int fd, uint32_t crtc_id, struct drm_mode_crtc *prev_crtc)
+{
+	memset(prev_crtc, 0, sizeof(struct drm_mode_crtc));
+	prev_crtc->crtc_id = crtc_id;
+	if(ioctl(fd, DRM_IOCTL_MODE_GETCRTC, prev_crtc) < 0) {
+		return 0;
+	}
+
+	return 1;
+}
+
+static int
+reset_crtc(int fd, struct drm_mode_crtc prev_crtc, uint32_t prev_connector_id)
+{
+	prev_crtc.set_connectors_ptr = (uint64_t)&prev_connector_id;
+	prev_crtc.count_connectors   = 1;
+	prev_crtc.mode_valid         = 1;
+	if(ioctl(fd, DRM_IOCTL_MODE_SETCRTC, &prev_crtc) < 0) {
 		return 0;
 	}
 

@@ -31,6 +31,9 @@ struct drm_ctl {
 	uint64_t mapped_offset;
 
 	struct agfx_plane input_plane;
+
+	struct drm_mode_crtc prev_crtc;
+	uint32_t prev_connector_id;
 };
 
 int  is_drm_available();
